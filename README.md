@@ -255,9 +255,25 @@ go test -race ./...
 
 ## 📋 API Documentation
 
-API documentation is automatically generated and available at:
+### Complete API Reference
+
+For detailed API documentation with request/response schemas, data types, and examples, see:
+- **[📖 Complete API Documentation](docs/API.md)** - Comprehensive guide with all endpoints, schemas, and examples
+- **[📋 API Changelog](CHANGELOG.md)** - Track all API changes and updates
+
+### Interactive Documentation
+
+API documentation is also available interactively at:
 - Development: `http://localhost:8080/swagger/index.html`
 - Production: `/swagger/index.html`
+
+### Quick Reference
+
+- **Base URL**: `http://localhost:8080/api/v1`
+- **Authentication**: Bearer JWT token
+- **Content-Type**: `application/json` (except file uploads: `multipart/form-data`)
+- **Rate Limits**: 100 requests/minute (varies by endpoint)
+- **File Upload Limit**: 10MB maximum per file
 
 ## 📝 Contributing
 
