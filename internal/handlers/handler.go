@@ -91,6 +91,27 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 				organization.GET("", h.GetOrganization)
 				organization.PUT("", middleware.RequireRole("admin"), h.UpdateOrganization)
 			}
+
+			// Emergency Contact routes
+			emergencyContacts := protected.Group("/emergency-contacts")
+			{
+				emergencyContacts.GET("", h.GetEmergencyContacts)
+				emergencyContacts.GET("/:id", h.GetEmergencyContact)
+				emergencyContacts.POST("", h.CreateEmergencyContact)
+				emergencyContacts.PUT("/:id", h.UpdateEmergencyContact)
+				emergencyContacts.DELETE("/:id", h.DeleteEmergencyContact)
+			}
+
+			// Care Plan routes
+			carePlans := protected.Group("/care-plans")
+			{
+				carePlans.GET("", h.GetCarePlans)
+				carePlans.GET("/:id", h.GetCarePlan)
+				carePlans.POST("", h.CreateCarePlan)
+				carePlans.PUT("/:id", h.UpdateCarePlan)
+				carePlans.PATCH("/:id/approve", middleware.RequireRole("admin,manager"), h.ApproveCarePlan)
+				carePlans.DELETE("/:id", h.DeleteCarePlan)
+			}
 		}
 	}
 }
