@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -50,6 +51,7 @@ func AuthRequired(cfg *config.Config) gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
+			fmt.Printf("JWT validation error: %v, token valid: %v\n", err, token.Valid)
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"error": gin.H{
@@ -76,6 +78,8 @@ func AuthRequired(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		// Set user information in context
+		fmt.Printf("Setting context - user_id: %v, email: %v, role: %v, org_id: %v\n", 
+			claims["user_id"], claims["email"], claims["role"], claims["org_id"])
 		c.Set("user_id", claims["user_id"])
 		c.Set("user_email", claims["email"])
 		c.Set("user_role", claims["role"])

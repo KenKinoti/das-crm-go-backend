@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 func (h *Handler) GetCurrentUser(c *gin.Context) {
 	userID, exists := c.Get("user_id")
+	fmt.Printf("GetCurrentUser - userID: %v, exists: %v\n", userID, exists)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success": false,
