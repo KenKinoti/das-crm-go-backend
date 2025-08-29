@@ -20,9 +20,8 @@ func TestCreateShift(t *testing.T) {
 		ID:           "shift-participant",
 		FirstName:    "Shift",
 		LastName:     "Participant",
-		DateOfBirth:  "1990-01-01",
+		DateOfBirth:  time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		NDISNumber:   "SHIFT123",
-		OrganizationID: "test-org",
 	}
 	handler.DB.Create(&testParticipant)
 
@@ -32,7 +31,6 @@ func TestCreateShift(t *testing.T) {
 		FirstName:      "Shift",
 		LastName:       "Staff",
 		Role:           "care_worker",
-		OrganizationID: "test-org",
 		IsActive:       true,
 	}
 	handler.DB.Create(&testStaff)
@@ -183,7 +181,6 @@ func TestGetShift(t *testing.T) {
 		ServiceType:   "Personal Care",
 		Status:        "scheduled",
 		HourlyRate:    45.50,
-		OrganizationID: "test-org",
 	}
 	handler.DB.Create(&testShift)
 
@@ -231,7 +228,6 @@ func TestUpdateShift(t *testing.T) {
 		ServiceType:   "Personal Care",
 		Status:        "scheduled",
 		HourlyRate:    45.50,
-		OrganizationID: "test-org",
 	}
 	handler.DB.Create(&testShift)
 
@@ -289,7 +285,6 @@ func TestUpdateShiftStatus(t *testing.T) {
 		ServiceType:   "Personal Care",
 		Status:        "scheduled",
 		HourlyRate:    45.50,
-		OrganizationID: "test-org",
 	}
 	handler.DB.Create(&testShift)
 
@@ -325,8 +320,7 @@ func TestUpdateShiftStatus(t *testing.T) {
 			EndTime:       futureTime.Add(8 * time.Hour),
 			Status:        "scheduled",
 			HourlyRate:    45.50,
-			OrganizationID: "test-org",
-		}
+			}
 		handler.DB.Create(&testShift2)
 
 		statusData := map[string]interface{}{
@@ -359,7 +353,6 @@ func TestDeleteShift(t *testing.T) {
 		ServiceType:   "Personal Care",
 		Status:        "scheduled",
 		HourlyRate:    45.50,
-		OrganizationID: "test-org",
 	}
 	handler.DB.Create(&testShift)
 

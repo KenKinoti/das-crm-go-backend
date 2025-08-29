@@ -13,10 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/config"
-	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/database"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/handlers"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/models"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

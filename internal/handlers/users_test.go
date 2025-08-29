@@ -8,12 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/config"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/models"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestCreateUser(t *testing.T) {
@@ -287,6 +285,16 @@ func getTestToken(handler *Handler) string {
 		OrganizationID: "test-org",
 	}
 	
-	token, _ := handler.generateToken(user)
-	return token
+	// Generate test JWT token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"email":   user.Email,
+		"role":    user.Role,
+		"org_id":  user.OrganizationID,
+		"exp":     time.Now().Add(time.Hour).Unix(),
+		"iat":     time.Now().Unix(),
+	})
+
+	tokenString, _ := token.SignedString([]byte("test-secret-key"))
+	return tokenString
 }

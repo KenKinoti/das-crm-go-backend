@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-08-29
+
+### Fixed
+- **Build and Compilation Issues**
+  - Fixed duplicate `CreateEmergencyContactRequest` struct declarations in participants.go and emergency_contacts.go
+  - Renamed participants.go struct to `CreateParticipantEmergencyContactRequest` to avoid conflicts
+  - Removed unused imports (`time` from organization.go, `strings` from shifts.go)
+  - Fixed invalid date string literals in test files - converted to proper `time.Date()` calls
+  - Removed invalid `OrganizationID` field references in shift struct literals (field doesn't exist in Shift model)
+  - Fixed missing `generateToken` method in users_test.go - implemented proper JWT token generation for tests
+
+- **Authentication System**  
+  - Verified JWT authentication middleware is working correctly
+  - Confirmed `/users/me` endpoint properly validates authentication tokens
+  - Validated proper error responses for missing/invalid tokens
+  - Fixed test compilation issues preventing authentication validation
+
+- **Test Infrastructure**
+  - Fixed all Go compilation errors preventing test execution
+  - Updated test imports and dependencies 
+  - Fixed date format issues in participant and shift test fixtures
+  - Corrected JWT token generation in test helper functions
+  - All integration tests now compile and run successfully
+
+### Technical
+- **Code Quality**: Resolved all compilation warnings and errors
+- **Test Coverage**: All test files now compile without errors
+- **Authentication Flow**: Validated complete login → JWT → protected endpoint flow
+- **API Endpoints**: Confirmed `/api/v1/users/me` endpoint works correctly with Bearer token authentication
+
 ### Added
 - Comprehensive CRUD operations for all CRM entities
 - Complete API endpoints for Users, Participants, Shifts, Documents, Organizations

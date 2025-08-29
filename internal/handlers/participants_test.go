@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/models"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,7 @@ func TestCreateParticipant(t *testing.T) {
 		participantData := map[string]interface{}{
 			"first_name":     "Jane",
 			"last_name":      "Participant",
-			"date_of_birth":  "1990-05-15",
+			"date_of_birth":  "1990-05-15T00:00:00Z",
 			"ndis_number":    "1234567890",
 			"email":          "jane.participant@email.com",
 			"phone":          "+61456789123",
@@ -103,7 +104,7 @@ func TestCreateParticipant(t *testing.T) {
 			ID:           "first-participant",
 			FirstName:    "First",
 			LastName:     "Participant",
-			DateOfBirth:  "1990-01-01",
+			DateOfBirth:  time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 			NDISNumber:   "DUPLICATE123",
 			OrganizationID: "test-org",
 		}
@@ -133,7 +134,7 @@ func TestCreateParticipant(t *testing.T) {
 		participantData := map[string]interface{}{
 			"first_name":    "Jane",
 			"last_name":     "Participant",
-			"date_of_birth": "1990-05-15",
+			"date_of_birth": "1990-05-15T00:00:00Z",
 			"ndis_number":   "1234567892",
 		}
 
@@ -186,7 +187,7 @@ func TestGetParticipant(t *testing.T) {
 		ID:           "test-participant",
 		FirstName:    "Test",
 		LastName:     "Participant",
-		DateOfBirth:  "1990-01-01",
+		DateOfBirth:  time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		NDISNumber:   "TEST123456",
 		Email:        "test.participant@email.com",
 		OrganizationID: "test-org",
@@ -231,7 +232,7 @@ func TestUpdateParticipant(t *testing.T) {
 		ID:           "update-participant",
 		FirstName:    "Update",
 		LastName:     "Participant",
-		DateOfBirth:  "1990-01-01",
+		DateOfBirth:  time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		NDISNumber:   "UPDATE123",
 		Email:        "update@email.com",
 		OrganizationID: "test-org",
@@ -291,7 +292,7 @@ func TestDeleteParticipant(t *testing.T) {
 		ID:           "delete-participant",
 		FirstName:    "Delete",
 		LastName:     "Participant",
-		DateOfBirth:  "1990-01-01",
+		DateOfBirth:  time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		NDISNumber:   "DELETE123",
 		Email:        "delete@email.com",
 		OrganizationID: "test-org",

@@ -146,10 +146,10 @@ type CreateParticipantRequest struct {
 	Address        models.Address            `json:"address"`
 	MedicalInfo    models.MedicalInformation `json:"medical_information"`
 	Funding        models.FundingInformation `json:"funding"`
-	EmergencyContacts []CreateEmergencyContactRequest `json:"emergency_contacts,omitempty"`
+	EmergencyContacts []CreateParticipantEmergencyContactRequest `json:"emergency_contacts,omitempty"`
 }
 
-type CreateEmergencyContactRequest struct {
+type CreateParticipantEmergencyContactRequest struct {
 	Name         string `json:"name" binding:"required"`
 	Relationship string `json:"relationship" binding:"required"`
 	Phone        string `json:"phone" binding:"required"`
