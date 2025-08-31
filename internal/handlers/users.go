@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/models"
@@ -72,24 +73,50 @@ func (h *Handler) GetUsers(c *gin.Context) {
 		return
 	}
 
+	// Get user role for permission check
+	userRole, roleExists := c.Get("user_role")
+	if !roleExists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "UNAUTHORIZED",
+				"message": "User role not found in context",
+			},
+		})
+		return
+	}
+
 	// Parse query parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	role := c.Query("role")
 	isActive := c.Query("is_active")
 	search := c.Query("search")
+	createdAfter := c.Query("created_after")
 
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
+	
+	// Allow higher limits for super admin and admin users
+	maxLimit := 100
+	if userRole == "super_admin" || userRole == "admin" {
+		maxLimit = 1000
+	}
+	
+	if limit < 1 || limit > maxLimit {
 		limit = 10
 	}
 
 	offset := (page - 1) * limit
 
-	// Build query
-	query := h.DB.Where("organization_id = ?", orgID)
+	// Build query - super admins can see all users
+	var query *gorm.DB
+	if userRole == "super_admin" {
+		query = h.DB.Model(&models.User{})
+	} else {
+		query = h.DB.Where("organization_id = ?", orgID)
+	}
 
 	if role != "" {
 		query = query.Where("role = ?", role)
@@ -103,6 +130,12 @@ func (h *Handler) GetUsers(c *gin.Context) {
 	if search != "" {
 		searchTerm := "%" + strings.ToLower(search) + "%"
 		query = query.Where("LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ? OR LOWER(email) LIKE ?", searchTerm, searchTerm, searchTerm)
+	}
+
+	if createdAfter != "" {
+		if createdAfterTime, err := time.Parse(time.RFC3339, createdAfter); err == nil {
+			query = query.Where("created_at >= ?", createdAfterTime)
+		}
 	}
 
 	// Get total count
@@ -284,7 +317,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 
 	// Get current user ID to prevent self-deactivation if admin
 	currentUserID, _ := c.Get("user_id")
-	currentUserRole, _ := c.Get("role")
+	currentUserRole, _ := c.Get("user_role")
 
 	var req UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -299,9 +332,16 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// Find user
+	// Find user - super admins can access users from any organization
 	var user models.User
-	if err := h.DB.Where("id = ? AND organization_id = ?", userID, orgID).First(&user).Error; err != nil {
+	var query *gorm.DB
+	if currentUserRole == "super_admin" {
+		query = h.DB.Where("id = ?", userID)
+	} else {
+		query = h.DB.Where("id = ? AND organization_id = ?", userID, orgID)
+	}
+	
+	if err := query.First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"success": false,
@@ -329,6 +369,18 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 			"error": gin.H{
 				"code":    "INVALID_OPERATION",
 				"message": "Admin users cannot deactivate themselves",
+			},
+		})
+		return
+	}
+
+	// Prevent support workers from changing their own active status
+	if currentUserID == userID && req.IsActive != nil && (currentUserRole == "care_worker" || currentUserRole == "support_coordinator") {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "INVALID_OPERATION",
+				"message": "Support workers cannot change their own active/inactive status",
 			},
 		})
 		return
@@ -402,8 +454,11 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	// Get current user ID to prevent self-deletion
+	// Get current user info
 	currentUserID, _ := c.Get("user_id")
+	currentUserRole, _ := c.Get("user_role")
+	
+	// Prevent self-deletion
 	if currentUserID == userID {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -414,10 +469,32 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		})
 		return
 	}
+	
+	// Protect system admin user from deletion
+	var checkUser models.User
+	if err := h.DB.Where("id = ?", userID).First(&checkUser).Error; err == nil {
+		if checkUser.Email == "kennedy@dasyin.com.au" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "PROTECTED_USER",
+					"message": "This system administrator user cannot be deleted",
+				},
+			})
+			return
+		}
+	}
 
-	// Find user
+	// Find user - super admins can access users from any organization
 	var user models.User
-	if err := h.DB.Where("id = ? AND organization_id = ?", userID, orgID).First(&user).Error; err != nil {
+	var query *gorm.DB
+	if currentUserRole == "super_admin" {
+		query = h.DB.Where("id = ?", userID)
+	} else {
+		query = h.DB.Where("id = ? AND organization_id = ?", userID, orgID)
+	}
+	
+	if err := query.First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"success": false,

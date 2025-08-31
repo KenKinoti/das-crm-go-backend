@@ -31,6 +31,7 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 		{
 			auth.POST("/login", h.Login)
 			auth.POST("/refresh", h.RefreshToken)
+			auth.GET("/test-accounts", h.GetTestAccounts)
 		}
 
 		// Protected routes (require authentication)
@@ -89,7 +90,53 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 			organization := protected.Group("/organization")
 			{
 				organization.GET("", h.GetOrganization)
-				organization.PUT("", middleware.RequireRole("admin"), h.UpdateOrganization)
+				organization.PUT("", middleware.RequireRole("admin", "manager"), h.UpdateOrganization)
+				
+				// Organization branding routes
+				organization.GET("/branding", h.GetOrganizationBranding)
+				organization.PUT("/branding", middleware.RequireRole("admin"), h.UpdateOrganizationBranding)
+				
+				// Organization settings routes
+				organization.GET("/settings", h.GetOrganizationSettings)
+				organization.PUT("/settings", middleware.RequireRole("admin"), h.UpdateOrganizationSettings)
+				
+				// Organization subscription routes
+				organization.GET("/subscription", middleware.RequireRole("admin"), h.GetOrganizationSubscription)
+				organization.PUT("/subscription", middleware.RequireRole("admin"), h.UpdateOrganizationSubscription)
+			}
+
+			// Super Admin routes (require super_admin role)
+			superAdmin := protected.Group("/super-admin")
+			superAdmin.Use(middleware.RequireSuperAdmin())
+			{
+				// Organization management
+				organizations := superAdmin.Group("/organizations")
+				{
+					organizations.GET("", h.GetAllOrganizations)
+					organizations.GET("/:id", h.GetOrganizationById)
+					organizations.POST("", h.CreateOrganization)
+					organizations.PATCH("/:id/status", h.UpdateOrganizationStatus)
+					organizations.DELETE("/:id", h.DeleteOrganization)
+				}
+			}
+
+			// Admin routes (require admin role)
+			admin := protected.Group("/admin")
+			admin.Use(middleware.RequireRole("admin", "super_admin"))
+			{
+				admin.POST("/seed", h.SeedDatabase)
+				admin.POST("/seed-organizations", h.SeedOrganizations)
+				admin.POST("/seed-advanced", h.SeedAdvanced)
+				admin.DELETE("/clear-test-data", middleware.RequireElevatedAuth(), h.ClearTestData)
+				admin.DELETE("/truncate", middleware.RequireElevatedAuth(), middleware.RequirePasswordConfirmation(), h.TruncateDatabase)
+				
+				// Database management routes (admin can view stats)
+				admin.GET("/stats", h.GetSystemStats)
+				admin.GET("/tables", h.GetTableStats)
+				admin.POST("/backup", middleware.RequireSuperAdmin(), middleware.RequireElevatedAuth(), h.DatabaseBackup)
+				admin.POST("/maintenance", middleware.RequireSuperAdmin(), middleware.RequireElevatedAuth(), h.DatabaseMaintenance)
+				admin.POST("/cleanup", middleware.RequireSuperAdmin(), middleware.RequireElevatedAuth(), middleware.RequirePasswordConfirmation(), h.DatabaseCleanup)
+				admin.GET("/tables/:table", middleware.RequireSuperAdmin(), h.GetTableData)
 			}
 
 			// Emergency Contact routes
@@ -111,6 +158,29 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 				carePlans.PUT("/:id", h.UpdateCarePlan)
 				carePlans.PATCH("/:id/approve", middleware.RequireRole("admin,manager"), h.ApproveCarePlan)
 				carePlans.DELETE("/:id", h.DeleteCarePlan)
+			}
+
+			// Billing routes
+			billing := protected.Group("/billing")
+			{
+				billing.GET("", h.GetBilling)
+				billing.GET("/:id", h.GetBillingRecord)
+				billing.POST("/generate", h.GenerateInvoice)
+				billing.POST("/:id/payment", h.MarkAsPaid)
+				billing.GET("/:id/download", h.DownloadInvoice)
+			}
+
+			// Reports routes
+			reports := protected.Group("/reports")
+			{
+				reports.GET("/dashboard", h.GetDashboardStats)
+				reports.GET("/revenue", h.GetRevenueReport)
+				reports.GET("/shifts", h.GetShiftsReport)
+				reports.GET("/service-hours", h.GetServiceHoursReport)
+				reports.GET("/participants", h.GetParticipantReport)
+				reports.GET("/staff-performance", h.GetStaffPerformance)
+				reports.GET("/:type/export", h.ExportReport)
+				reports.GET("/templates", h.GetReportTemplates)
 			}
 		}
 	}

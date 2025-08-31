@@ -20,6 +20,8 @@ help:
 	@echo "  check            - Run all checks (fmt, lint, test, build)"
 	@echo "  install-tools    - Install development tools"
 	@echo "  swagger          - Generate Swagger documentation"
+	@echo "  seed             - Seed database with test data"
+	@echo "  seed-clean       - Remove all test data from database"
 
 # Build the application
 build:
@@ -173,3 +175,13 @@ migrate-down:
 	else \
 		echo "Migration rollback script not found"; \
 	fi
+
+# Seed database with test data
+seed:
+	@echo "Seeding database with test data..."
+	@./scripts/seed.sh
+
+# Clean test data from database
+seed-clean:
+	@echo "Removing test data from database..."
+	@./scripts/seed.sh clean

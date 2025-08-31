@@ -264,6 +264,84 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	})
 }
 
+// GetTestAccounts returns test account information for login screen
+func (h *Handler) GetTestAccounts(c *gin.Context) {
+	// Only return test accounts in development environment
+	if h.Config.Environment != "development" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"data":    []gin.H{},
+		})
+		return
+	}
+
+	testAccounts := []gin.H{
+		{
+			"email": "kennedy@dasyin.com.au",
+			"password": "Test123!@#",
+			"role": "super_admin",
+			"name": "Ken Kinoti (System Admin)",
+			"description": "System administrator with full access",
+		},
+		{
+			"email": "Jane.Jones90@test.com", 
+			"password": "Test123!@#",
+			"role": "care_worker",
+			"name": "Jane Jones",
+			"description": "Care worker - limited access",
+		},
+		{
+			"email": "David.Jones20@test.com",
+			"password": "Test123!@#", 
+			"role": "support_coordinator",
+			"name": "David Jones",
+			"description": "Support coordinator",
+		},
+		{
+			"email": "Michael.Thomas75@test.com",
+			"password": "Test123!@#",
+			"role": "admin",
+			"name": "Michael Thomas", 
+			"description": "Organization admin",
+		},
+	}
+
+	// Get additional recent test accounts from database
+	var users []models.User
+	h.DB.Where("email LIKE ?", "%@test.com").
+		Where("is_active = ?", true).
+		Order("created_at DESC").
+		Limit(10).
+		Find(&users)
+
+	for _, user := range users {
+		// Skip if already in the static list
+		exists := false
+		for _, account := range testAccounts {
+			if account["email"] == user.Email {
+				exists = true
+				break
+			}
+		}
+		
+		if !exists {
+			testAccounts = append(testAccounts, gin.H{
+				"email": user.Email,
+				"password": "Test123!@#",
+				"role": user.Role,
+				"name": user.FirstName + " " + user.LastName,
+				"description": "Generated test user - " + user.Role,
+			})
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    testAccounts,
+		"message": "Test accounts for development environment",
+	})
+}
+
 func (h *Handler) Logout(c *gin.Context) {
 	// Get user from context (set by auth middleware)
 	userID, exists := c.Get("user_id")
@@ -285,4 +363,70 @@ func (h *Handler) Logout(c *gin.Context) {
 		"success": true,
 		"message": "Logged out successfully",
 	})
+}
+
+// ValidatePasswordConfirmation validates the password confirmation from middleware
+func (h *Handler) ValidatePasswordConfirmation(c *gin.Context, userID string) bool {
+	passwordConfirm, exists := c.Get("password_confirm")
+	if !exists {
+		return false
+	}
+
+	// Get user from database
+	var user models.User
+	if err := h.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		return false
+	}
+
+	// Check if provided password matches user's current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(passwordConfirm.(string))); err != nil {
+		return false
+	}
+
+	return true
+}
+
+// RequireDoubleAuth validates both JWT token and password confirmation for critical operations
+func (h *Handler) RequireDoubleAuth(c *gin.Context) bool {
+	// Check if user is authenticated (should be set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "AUTHENTICATION_REQUIRED",
+				"message": "User must be authenticated",
+			},
+		})
+		return false
+	}
+
+	// Check elevated auth flag
+	elevatedAuth, exists := c.Get("elevated_auth")
+	if !exists || !elevatedAuth.(bool) {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "ELEVATED_AUTH_REQUIRED",
+				"message": "Elevated authentication required for this operation",
+			},
+		})
+		return false
+	}
+
+	// Validate password confirmation if it exists
+	if _, exists := c.Get("password_confirm"); exists {
+		if !h.ValidatePasswordConfirmation(c, userID.(string)) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "INVALID_PASSWORD_CONFIRMATION",
+					"message": "Password confirmation failed",
+				},
+			})
+			return false
+		}
+	}
+
+	return true
 }

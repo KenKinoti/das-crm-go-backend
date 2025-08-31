@@ -35,6 +35,7 @@ type User struct {
 	LastName       string         `json:"last_name" gorm:"type:varchar(100);not null"`
 	Phone          string         `json:"phone" gorm:"type:varchar(20)"`
 	Role           string         `json:"role" gorm:"type:varchar(50);not null;index"` // admin, manager, care_worker, support_coordinator
+	RoleID         *string        `json:"role_id,omitempty" gorm:"type:varchar(36);index"` // New role-based system
 	OrganizationID string         `json:"organization_id" gorm:"type:varchar(36);not null;index"`
 	IsActive       bool           `json:"is_active" gorm:"default:true;index"`
 	LastLoginAt    *time.Time     `json:"last_login_at,omitempty"`
@@ -381,15 +382,35 @@ func SeedDatabase(db *gorm.DB) error {
 		Email:          "kennedy@dasyin.com.au",
 		FirstName:      "Ken",
 		LastName:       "Kinoti",
-		Role:           "admin",
+		Role:           "super_admin",
 		OrganizationID: org.ID,
 		IsActive:       true,
 		// Note: Password should be hashed in real implementation
-		PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // "password"
+		PasswordHash: "$2a$10$n0NvhICRgFPZq/EaeWxW6un3Xrym3.23GJpk4wYchZmpxgETxQani", // "Test123!@#"
 	}
 
-	if err := db.FirstOrCreate(&admin, "email = ?", admin.Email).Error; err != nil {
-		return err
+	// Always ensure the protected system admin exists and has correct credentials
+	// This is critical for system security and access recovery
+	var existingUser User
+	err := db.Where("email = ?", admin.Email).First(&existingUser).Error
+	if err != nil {
+		// User doesn't exist, create it
+		if err := db.Create(&admin).Error; err != nil {
+			return err
+		}
+	} else {
+		// User exists, ALWAYS update to ensure correct password and role
+		// This protects against any manual changes or corruption
+		if err := db.Model(&existingUser).Updates(map[string]interface{}{
+			"password_hash": admin.PasswordHash,
+			"role": admin.Role,
+			"is_active": true,
+			"first_name": admin.FirstName,
+			"last_name": admin.LastName,
+			"organization_id": admin.OrganizationID,
+		}).Error; err != nil {
+			return err
+		}
 	}
 
 	// Add default permissions for admin

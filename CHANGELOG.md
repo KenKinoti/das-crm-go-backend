@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Authentication System & Super Admin Access**
+  - Fixed kennedy@dasyin.com.au login credentials - updated password from "password" to "Test123!@#"
+  - Fixed organization assignment for kennedy account to ensure proper data access
+  - Updated Vue frontend login form default password to match backend credentials
+  - Resolved "no data displayed" issue for super admin users after login
+
+- **Role-Based Data Access Control**
+  - Implemented super admin role hierarchy allowing full system access across all organizations
+  - Fixed participants handler to allow super_admin users to see all 103 participants system-wide
+  - Fixed users handler to allow super_admin users to see all 52 users system-wide
+  - Fixed shifts handler to allow super_admin users to see all 1719 shifts system-wide
+  - Maintained organization-based restrictions for admin, manager, and other non-super admin roles
+  - Added role-based query logic in GetUsers, UpdateUser, DeleteUser, GetParticipants, and GetShifts handlers
+
+- **Database Permission System**
+  - Created fix-kennedy utility script to update super admin credentials and organization assignment
+  - Verified role hierarchy: super_admin > admin > manager > support_coordinator > care_worker
+  - Ensured proper data isolation for regular organizational users while providing system-wide access for super admins
+
+- **Frontend Debug Console Statements**
+  - Removed all debug console.log statements from Vue components and stores
+  - Kept essential error logging (console.error and console.warn) for proper error handling
+  - Improved code cleanliness and reduced console noise in production
+
+- **Shift Management System**
+  - Fixed start shift button functionality on both frontend and backend
+  - Updated frontend services to use correct API endpoints for shift status updates
+  - Simplified shift status transitions using proper store methods
+  - Corrected API calls for starting, completing, and cancelling shifts
+
+- **Time Handling Improvements**
+  - Enhanced API time parsing to accept multiple date/time formats for easier frontend integration
+  - Added support for local timezone handling without requiring complex timezone conversions
+  - Improved CreateShiftRequest and UpdateShiftRequest to accept time strings instead of complex Time objects
+  - Added parseTimeFromString utility function supporting ISO, RFC3339, and local time formats
+
+### Enhanced
+- **Super Admin Capabilities**
+  - kennedy@dasyin.com.au now has full system CRUD access across all organizations
+  - Super admin can view and manage participants from all organizations (103 total)
+  - Super admin can view and manage users from all organizations (52 total)
+  - Super admin can view and manage shifts from all organizations (1719 total)
+  - Regular admin users remain restricted to their organization's data
+
+- **Participant-Staff Allocation**
+  - Verified participant-staff allocation functionality works correctly
+  - Confirmed proper organization-based access control for shifts
+  - Validated staff overlap conflict detection prevents double-booking
+  - Ensured participant and staff validation during shift creation
+
+### Technical Improvements
+- **Role-Based Access Control**: Implemented hierarchical permission system with super admin override
+- **API Reliability**: All shift operations now use consistent status endpoint (`PATCH /shifts/:id/status`)
+- **Error Handling**: Improved error messages and validation for time format issues
+- **Code Quality**: Removed redundant optimistic UI updates in favor of server-driven state management
+- **Authentication Flow**: Complete login → JWT → role-based data access flow verified working
+
 ## [1.0.1] - 2025-08-29
 
 ### Fixed

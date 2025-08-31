@@ -50,8 +50,8 @@ func AuthRequired(cfg *config.Config) gin.HandlerFunc {
 			return []byte(cfg.JWTSecret), nil
 		})
 
-		if err != nil || !token.Valid {
-			fmt.Printf("JWT validation error: %v, token valid: %v\n", err, token.Valid)
+		if err != nil || token == nil || !token.Valid {
+			fmt.Printf("JWT validation error: %v, token valid: %v\n", err, token != nil && token.Valid)
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
 				"error": gin.H{
@@ -121,5 +121,103 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 			},
 		})
 		c.Abort()
+	}
+}
+
+// Super admin middleware - only allows super admin access
+func RequireSuperAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("user_role")
+		if !exists || userRole != "super_admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "SUPER_ADMIN_REQUIRED",
+					"message": "Super administrator access required",
+				},
+			})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
+// RequirePasswordConfirmation middleware for critical operations
+func RequirePasswordConfirmation() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check if password confirmation header exists
+		passwordConfirm := c.GetHeader("X-Password-Confirm")
+		if passwordConfirm == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "PASSWORD_CONFIRMATION_REQUIRED",
+					"message": "Password confirmation required for this operation",
+				},
+			})
+			c.Abort()
+			return
+		}
+
+		// Store the password confirmation for validation in handlers
+		c.Set("password_confirm", passwordConfirm)
+		c.Next()
+	}
+}
+
+// RequireElevatedAuth middleware for super sensitive operations
+func RequireElevatedAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("user_role")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "ROLE_NOT_FOUND",
+					"message": "User role not found",
+				},
+			})
+			c.Abort()
+			return
+		}
+
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "USER_ID_NOT_FOUND",
+					"message": "User ID not found",
+				},
+			})
+			c.Abort()
+			return
+		}
+
+		// Additional verification for elevated operations
+		roleStr := userRole.(string)
+		userIDStr := userID.(string)
+
+		// Log the elevated access attempt for security audit
+		fmt.Printf("Elevated auth attempt - UserID: %s, Role: %s, IP: %s, UserAgent: %s\n", 
+			userIDStr, roleStr, c.ClientIP(), c.GetHeader("User-Agent"))
+
+		// Only super_admin or verified admin can proceed
+		if roleStr != "super_admin" && roleStr != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "ELEVATED_PERMISSIONS_REQUIRED",
+					"message": "Elevated permissions required for this operation",
+				},
+			})
+			c.Abort()
+			return
+		}
+
+		// Set elevated auth flag
+		c.Set("elevated_auth", true)
+		c.Next()
 	}
 }

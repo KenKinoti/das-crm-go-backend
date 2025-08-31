@@ -29,7 +29,7 @@ func main() {
 	}
 
 	// Run migrations
-	if err := models.MigrateDB(db); err != nil {
+	if err := models.MigrateExtendedDB(db); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
 

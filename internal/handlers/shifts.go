@@ -1,14 +1,46 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/models"
 	"gorm.io/gorm"
 )
+
+// parseTimeFromString accepts multiple time formats and returns a time.Time
+func parseTimeFromString(timeStr string) (time.Time, error) {
+	timeStr = strings.TrimSpace(timeStr)
+	
+	// List of supported time formats
+	timeFormats := []string{
+		time.RFC3339,                    // "2006-01-02T15:04:05Z07:00"
+		time.RFC3339Nano,               // "2006-01-02T15:04:05.999999999Z07:00"
+		"2006-01-02T15:04:05",         // Local time without timezone
+		"2006-01-02 15:04:05",         // Space separated local time
+		"2006-01-02T15:04",            // Short format without seconds
+		"2006-01-02 15:04",            // Short format with space
+	}
+	
+	// Try each format
+	for _, format := range timeFormats {
+		if t, err := time.Parse(format, timeStr); err == nil {
+			// If no timezone info, treat as local time
+			if t.Location() == time.UTC && !strings.Contains(timeStr, "Z") && !strings.Contains(timeStr, "+") && !strings.Contains(timeStr, "-") {
+				// Convert to local timezone if no timezone was specified
+				local := time.Local
+				t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), local)
+			}
+			return t, nil
+		}
+	}
+	
+	return time.Time{}, &time.ParseError{Value: timeStr, Layout: "", ValueElem: ""}
+}
 
 func (h *Handler) GetShifts(c *gin.Context) {
 	orgID, exists := c.Get("org_id")
@@ -18,6 +50,19 @@ func (h *Handler) GetShifts(c *gin.Context) {
 			"error": gin.H{
 				"code":    "UNAUTHORIZED",
 				"message": "Organization not found in context",
+			},
+		})
+		return
+	}
+
+	// Get user role for permission check
+	userRole, roleExists := c.Get("user_role")
+	if !roleExists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "UNAUTHORIZED",
+				"message": "User role not found in context",
 			},
 		})
 		return
@@ -36,15 +81,27 @@ func (h *Handler) GetShifts(c *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
+	
+	// Allow higher limits for super admin and admin users
+	maxLimit := 100
+	if userRole == "super_admin" || userRole == "admin" {
+		maxLimit = 1000
+	}
+	
+	if limit < 1 || limit > maxLimit {
 		limit = 10
 	}
 
 	offset := (page - 1) * limit
 
-	// Build query - join with participants to ensure org access
-	query := h.DB.Joins("JOIN participants ON shifts.participant_id = participants.id").
-		Where("participants.organization_id = ?", orgID)
+	// Build query - super admins can see all shifts
+	var query *gorm.DB
+	if userRole == "super_admin" {
+		query = h.DB.Model(&models.Shift{}).Preload("Participant").Preload("Staff")
+	} else {
+		query = h.DB.Joins("JOIN participants ON shifts.participant_id = participants.id").
+			Where("participants.organization_id = ?", orgID)
+	}
 
 	if participantID != "" {
 		query = query.Where("shifts.participant_id = ?", participantID)
@@ -156,14 +213,14 @@ func (h *Handler) GetShift(c *gin.Context) {
 }
 
 type CreateShiftRequest struct {
-	ParticipantID string    `json:"participant_id" binding:"required"`
-	StaffID       string    `json:"staff_id" binding:"required"`
-	StartTime     time.Time `json:"start_time" binding:"required"`
-	EndTime       time.Time `json:"end_time" binding:"required"`
-	ServiceType   string    `json:"service_type" binding:"required"`
-	Location      string    `json:"location" binding:"required"`
-	HourlyRate    float64   `json:"hourly_rate" binding:"required,gt=0"`
-	Notes         string    `json:"notes"`
+	ParticipantID string `json:"participant_id" binding:"required"`
+	StaffID       string `json:"staff_id" binding:"required"`
+	StartTime     string `json:"start_time" binding:"required"` // Accept ISO string or local datetime
+	EndTime       string `json:"end_time" binding:"required"`   // Accept ISO string or local datetime
+	ServiceType   string `json:"service_type" binding:"required"`
+	Location      string `json:"location" binding:"required"`
+	HourlyRate    float64 `json:"hourly_rate" binding:"required,gt=0"`
+	Notes         string `json:"notes"`
 }
 
 func (h *Handler) CreateShift(c *gin.Context) {
@@ -192,8 +249,35 @@ func (h *Handler) CreateShift(c *gin.Context) {
 		return
 	}
 
+	// Parse start and end times - accept multiple formats
+	startTime, err := parseTimeFromString(req.StartTime)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "INVALID_START_TIME",
+				"message": "Invalid start time format. Use ISO format or local datetime.",
+				"details": err.Error(),
+			},
+		})
+		return
+	}
+
+	endTime, err := parseTimeFromString(req.EndTime)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "INVALID_END_TIME",
+				"message": "Invalid end time format. Use ISO format or local datetime.",
+				"details": err.Error(),
+			},
+		})
+		return
+	}
+
 	// Validate time range
-	if req.EndTime.Before(req.StartTime) || req.EndTime.Equal(req.StartTime) {
+	if endTime.Before(startTime) || endTime.Equal(startTime) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"error": gin.H{
@@ -234,7 +318,7 @@ func (h *Handler) CreateShift(c *gin.Context) {
 	var overlappingShifts int64
 	h.DB.Model(&models.Shift{}).
 		Where("staff_id = ? AND status NOT IN (?, ?) AND ((start_time <= ? AND end_time > ?) OR (start_time < ? AND end_time >= ?))",
-			req.StaffID, "cancelled", "completed", req.StartTime, req.StartTime, req.EndTime, req.EndTime).
+			req.StaffID, "cancelled", "completed", startTime, startTime, endTime, endTime).
 		Count(&overlappingShifts)
 
 	if overlappingShifts > 0 {
@@ -252,8 +336,8 @@ func (h *Handler) CreateShift(c *gin.Context) {
 	shift := models.Shift{
 		ParticipantID: req.ParticipantID,
 		StaffID:       req.StaffID,
-		StartTime:     req.StartTime,
-		EndTime:       req.EndTime,
+		StartTime:     startTime,
+		EndTime:       endTime,
 		ServiceType:   req.ServiceType,
 		Location:      req.Location,
 		Status:        "scheduled",
@@ -283,15 +367,15 @@ func (h *Handler) CreateShift(c *gin.Context) {
 }
 
 type UpdateShiftRequest struct {
-	StartTime       *time.Time `json:"start_time,omitempty"`
-	EndTime         *time.Time `json:"end_time,omitempty"`
-	ActualStartTime *time.Time `json:"actual_start_time,omitempty"`
-	ActualEndTime   *time.Time `json:"actual_end_time,omitempty"`
-	ServiceType     *string    `json:"service_type,omitempty"`
-	Location        *string    `json:"location,omitempty"`
-	HourlyRate      *float64   `json:"hourly_rate,omitempty" binding:"omitempty,gt=0"`
-	Notes           *string    `json:"notes,omitempty"`
-	CompletionNotes *string    `json:"completion_notes,omitempty"`
+	StartTime       *string  `json:"start_time,omitempty"`        // Accept string for easier frontend integration
+	EndTime         *string  `json:"end_time,omitempty"`          // Accept string for easier frontend integration
+	ActualStartTime *string  `json:"actual_start_time,omitempty"` // Accept string for easier frontend integration
+	ActualEndTime   *string  `json:"actual_end_time,omitempty"`   // Accept string for easier frontend integration
+	ServiceType     *string  `json:"service_type,omitempty"`
+	Location        *string  `json:"location,omitempty"`
+	HourlyRate      *float64 `json:"hourly_rate,omitempty" binding:"omitempty,gt=0"`
+	Notes           *string  `json:"notes,omitempty"`
+	CompletionNotes *string  `json:"completion_notes,omitempty"`
 }
 
 func (h *Handler) UpdateShift(c *gin.Context) {
@@ -321,11 +405,30 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 		return
 	}
 
-	// Find shift with access control
+	// Get user role for permission check  
+	userRole, roleExists := c.Get("user_role")
+	if !roleExists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "UNAUTHORIZED", 
+				"message": "User role not found in context",
+			},
+		})
+		return
+	}
+
+	// Find shift with access control - same logic as GetShifts
 	var shift models.Shift
-	if err := h.DB.Joins("JOIN participants ON shifts.participant_id = participants.id").
-		Where("shifts.id = ? AND participants.organization_id = ?", shiftID, orgID).
-		First(&shift).Error; err != nil {
+	var query *gorm.DB
+	if userRole == "super_admin" {
+		query = h.DB.Model(&models.Shift{}).Where("id = ?", shiftID)
+	} else {
+		query = h.DB.Joins("JOIN participants ON shifts.participant_id = participants.id").
+			Where("shifts.id = ? AND participants.organization_id = ?", shiftID, orgID)
+	}
+	
+	if err := query.First(&shift).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"success": false,
@@ -346,15 +449,42 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 		return
 	}
 
-	// Validate time ranges if being updated
+	// Parse and validate time ranges if being updated
 	startTime := shift.StartTime
 	endTime := shift.EndTime
+	
 	if req.StartTime != nil {
-		startTime = *req.StartTime
+		if parsedStart, err := parseTimeFromString(*req.StartTime); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "INVALID_START_TIME",
+					"message": "Invalid start time format",
+					"details": err.Error(),
+				},
+			})
+			return
+		} else {
+			startTime = parsedStart
+		}
 	}
+	
 	if req.EndTime != nil {
-		endTime = *req.EndTime
+		if parsedEnd, err := parseTimeFromString(*req.EndTime); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "INVALID_END_TIME",
+					"message": "Invalid end time format",
+					"details": err.Error(),
+				},
+			})
+			return
+		} else {
+			endTime = parsedEnd
+		}
 	}
+	
 	if endTime.Before(startTime) || endTime.Equal(startTime) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -389,16 +519,20 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 	// Update fields
 	updates := make(map[string]interface{})
 	if req.StartTime != nil {
-		updates["start_time"] = *req.StartTime
+		updates["start_time"] = startTime
 	}
 	if req.EndTime != nil {
-		updates["end_time"] = *req.EndTime
+		updates["end_time"] = endTime
 	}
 	if req.ActualStartTime != nil {
-		updates["actual_start_time"] = *req.ActualStartTime
+		if actualStart, err := parseTimeFromString(*req.ActualStartTime); err == nil {
+			updates["actual_start_time"] = actualStart
+		}
 	}
 	if req.ActualEndTime != nil {
-		updates["actual_end_time"] = *req.ActualEndTime
+		if actualEnd, err := parseTimeFromString(*req.ActualEndTime); err == nil {
+			updates["actual_end_time"] = actualEnd
+		}
 	}
 	if req.ServiceType != nil {
 		updates["service_type"] = *req.ServiceType
@@ -438,10 +572,10 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 }
 
 type UpdateShiftStatusRequest struct {
-	Status          string     `json:"status" binding:"required,oneof=scheduled in_progress completed cancelled no_show"`
-	CompletionNotes *string    `json:"completion_notes,omitempty"`
-	ActualStartTime *time.Time `json:"actual_start_time,omitempty"`
-	ActualEndTime   *time.Time `json:"actual_end_time,omitempty"`
+	Status          string  `json:"status" binding:"required,oneof=scheduled in_progress completed cancelled no_show"`
+	CompletionNotes *string `json:"completion_notes,omitempty"`
+	ActualStartTime *string `json:"actual_start_time,omitempty"` // Accept string for easier frontend integration
+	ActualEndTime   *string `json:"actual_end_time,omitempty"`   // Accept string for easier frontend integration
 }
 
 func (h *Handler) UpdateShiftStatus(c *gin.Context) {
@@ -453,6 +587,30 @@ func (h *Handler) UpdateShiftStatus(c *gin.Context) {
 			"error": gin.H{
 				"code":    "UNAUTHORIZED",
 				"message": "Organization not found in context",
+			},
+		})
+		return
+	}
+
+	userRole, roleExists := c.Get("user_role")
+	if !roleExists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "UNAUTHORIZED",
+				"message": "User role not found in context",
+			},
+		})
+		return
+	}
+
+	userID, userExists := c.Get("user_id")
+	if !userExists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "UNAUTHORIZED",
+				"message": "User ID not found in context",
 			},
 		})
 		return
@@ -491,6 +649,38 @@ func (h *Handler) UpdateShiftStatus(c *gin.Context) {
 			"error": gin.H{
 				"code":    "DATABASE_ERROR",
 				"message": "Failed to fetch shift",
+			},
+		})
+		return
+	}
+
+	// Role-based permissions check
+	role := fmt.Sprintf("%v", userRole)
+	currentUserID := fmt.Sprintf("%v", userID)
+	
+	// Only admin and manager can edit shifts, staff can only start/complete their own shifts
+	canEdit := role == "admin" || role == "manager"
+	isOwnShift := shift.StaffID == currentUserID
+	
+	// For status changes, staff can only modify their own shifts and only for start/complete actions
+	if !canEdit && !isOwnShift {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "INSUFFICIENT_PERMISSIONS",
+				"message": "You can only modify your own assigned shifts",
+			},
+		})
+		return
+	}
+	
+	// Staff can only start/complete shifts, not cancel or reschedule
+	if !canEdit && (req.Status == "cancelled" || req.Status == "no_show") {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "INSUFFICIENT_PERMISSIONS", 
+				"message": "Only managers and admins can cancel or mark shifts as no-show",
 			},
 		})
 		return
@@ -537,6 +727,25 @@ func (h *Handler) UpdateShiftStatus(c *gin.Context) {
 		return
 	}
 
+	// Special validation for starting shifts (30-minute rule)
+	if req.Status == "in_progress" && shift.Status == "scheduled" {
+		now := time.Now()
+		shiftStart := shift.StartTime
+		
+		// Check if trying to start more than 30 minutes before scheduled time
+		if now.Before(shiftStart.Add(-30 * time.Minute)) {
+			minutesEarly := int(shiftStart.Sub(now).Minutes())
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "TOO_EARLY_TO_START",
+					"message": fmt.Sprintf("Cannot start shift more than 30 minutes early. Shift starts in %d minutes.", minutesEarly),
+				},
+			})
+			return
+		}
+	}
+
 	// Update fields
 	updates := map[string]interface{}{
 		"status": req.Status,
@@ -546,10 +755,14 @@ func (h *Handler) UpdateShiftStatus(c *gin.Context) {
 		updates["completion_notes"] = *req.CompletionNotes
 	}
 	if req.ActualStartTime != nil {
-		updates["actual_start_time"] = *req.ActualStartTime
+		if actualStart, err := parseTimeFromString(*req.ActualStartTime); err == nil {
+			updates["actual_start_time"] = actualStart
+		}
 	}
 	if req.ActualEndTime != nil {
-		updates["actual_end_time"] = *req.ActualEndTime
+		if actualEnd, err := parseTimeFromString(*req.ActualEndTime); err == nil {
+			updates["actual_end_time"] = actualEnd
+		}
 	}
 
 	// Auto-set actual times for certain transitions

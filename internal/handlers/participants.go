@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +25,22 @@ func (h *Handler) GetParticipants(c *gin.Context) {
 		return
 	}
 
+	// Get user role for permission check
+	userRole, roleExists := c.Get("user_role")
+	if !roleExists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error": gin.H{
+				"code":    "UNAUTHORIZED",
+				"message": "User role not found in context",
+			},
+		})
+		return
+	}
+
+	// Debug output
+	fmt.Printf("GetParticipants - userRole: %v (type: %T)\n", userRole, userRole)
+
 	// Parse query parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -34,14 +51,26 @@ func (h *Handler) GetParticipants(c *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
+	
+	// Allow higher limits for super admin and admin users
+	maxLimit := 100
+	if userRole == "super_admin" || userRole == "admin" {
+		maxLimit = 1000
+	}
+	
+	if limit < 1 || limit > maxLimit {
 		limit = 10
 	}
 
 	offset := (page - 1) * limit
 
-	// Build query
-	query := h.DB.Where("organization_id = ?", orgID)
+	// Build query - super admins can see all participants
+	var query *gorm.DB
+	if userRole == "super_admin" {
+		query = h.DB.Model(&models.Participant{})
+	} else {
+		query = h.DB.Where("organization_id = ?", orgID)
+	}
 
 	if isActive != "" {
 		activeFilter, _ := strconv.ParseBool(isActive)
