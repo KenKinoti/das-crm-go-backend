@@ -29,6 +29,14 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 		// Public auth routes
 		auth := v1.Group("/auth")
 		{
+			// Handle OPTIONS requests explicitly
+			auth.OPTIONS("/login", func(c *gin.Context) {
+				c.Status(200)
+			})
+			auth.OPTIONS("/refresh", func(c *gin.Context) {
+				c.Status(200)
+			})
+			
 			auth.POST("/login", h.Login)
 			auth.POST("/refresh", h.RefreshToken)
 			auth.GET("/test-accounts", h.GetTestAccounts)
