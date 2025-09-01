@@ -186,39 +186,131 @@ func (s *Seeder) SeedOrganizations() ([]models.Organization, error) {
 }
 
 func (s *Seeder) SeedUsers(orgID string) ([]models.User, error) {
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("Test123!@#"), bcrypt.DefaultCost)
+	// Use 'password' to match frontend mock authentication
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
 	
-	roles := []string{"admin", "manager", "support_coordinator", "care_worker"}
 	users := []models.User{}
 
-	// Create super admin only once (check if we're processing the first org)
-	var existingSuperAdmin models.User
-	result := s.db.Where("role = ?", "super_admin").First(&existingSuperAdmin)
-	if result.Error != nil && orgID != "" {
-		// Create super admin if doesn't exist and this is the first org
-		superAdmin := models.User{
-			ID:             uuid.New().String(),
-			Email:          "superadmin@system.com",
-			PasswordHash:   string(hashedPassword),
-			FirstName:      "System",
-			LastName:       "Administrator",
-			Phone:          "+61 400 000 000",
-			Role:           "super_admin",
-			OrganizationID: orgID, // Super admin belongs to first org
-			IsActive:       true,
-		}
-		if err := s.db.Create(&superAdmin).Error; err != nil {
-			return nil, err
-		}
-		users = append(users, superAdmin)
-		fmt.Printf("✓ Created super admin: %s\n", superAdmin.Email)
-	} else {
-		// Super admin already exists
-		users = append(users, existingSuperAdmin)
-		fmt.Printf("• Super admin already exists: %s\n", existingSuperAdmin.Email)
+	// Get org info to determine which org we're creating users for
+	var org models.Organization
+	if err := s.db.First(&org, "id = ?", orgID).Error; err != nil {
+		return nil, err
 	}
 
-	// Create 2 users per role for the organization, with some inactive for testing
+	// Create frontend test users for the first organization (regardless of name)
+	var firstOrg models.Organization
+	if err := s.db.First(&firstOrg).Error; err == nil && org.ID == firstOrg.ID {
+		frontendTestUsers := []models.User{
+			{
+				ID:             uuid.New().String(),
+				Email:          "admin@dasyin.com.au",
+				PasswordHash:   string(hashedPassword),
+				FirstName:      "System",
+				LastName:       "Administrator",
+				Phone:          "+61 400 000 001",
+				Role:           "super_admin",
+				OrganizationID: orgID,
+				IsActive:       true,
+			},
+			{
+				ID:             uuid.New().String(),
+				Email:          "kennedy@dasyin.com.au",
+				PasswordHash:   string(hashedPassword),
+				FirstName:      "Ken",
+				LastName:       "Kinoti",
+				Phone:          "+61 400 000 002",
+				Role:           "admin",
+				OrganizationID: orgID,
+				IsActive:       true,
+			},
+			{
+				ID:             uuid.New().String(),
+				Email:          "manager@dasyin.com.au",
+				PasswordHash:   string(hashedPassword),
+				FirstName:      "Sarah",
+				LastName:       "Wilson",
+				Phone:          "+61 400 000 003",
+				Role:           "manager",
+				OrganizationID: orgID,
+				IsActive:       true,
+			},
+			{
+				ID:             uuid.New().String(),
+				Email:          "coordinator@dasyin.com.au",
+				PasswordHash:   string(hashedPassword),
+				FirstName:      "Lisa",
+				LastName:       "Johnson",
+				Phone:          "+61 400 000 004",
+				Role:           "support_coordinator",
+				OrganizationID: orgID,
+				IsActive:       true,
+			},
+			{
+				ID:             uuid.New().String(),
+				Email:          "careworker@dasyin.com.au",
+				PasswordHash:   string(hashedPassword),
+				FirstName:      "John",
+				LastName:       "Smith",
+				Phone:          "+61 400 000 005",
+				Role:           "care_worker",
+				OrganizationID: orgID,
+				IsActive:       true,
+			},
+		}
+
+		// Create each frontend test user
+		for _, user := range frontendTestUsers {
+			var existingUser models.User
+			if err := s.db.Where("email = ?", user.Email).First(&existingUser).Error; err == nil {
+				// User already exists
+				fmt.Printf("• Frontend test user already exists: %s\n", existingUser.Email)
+				users = append(users, existingUser)
+			} else {
+				// Create new user
+				if err := s.db.Create(&user).Error; err != nil {
+					return nil, err
+				}
+				users = append(users, user)
+				fmt.Printf("✓ Created frontend test user: %s (%s)\n", user.Email, user.Role)
+			}
+		}
+	}
+
+	// Create org 2 admin for second organization (regardless of name)
+	var secondOrg models.Organization
+	if err := s.db.Offset(1).First(&secondOrg).Error; err == nil && org.ID == secondOrg.ID {
+		org2Admin := models.User{
+			ID:             uuid.New().String(),
+			Email:          "org2admin@dasyin.com.au",
+			PasswordHash:   string(hashedPassword),
+			FirstName:      "Mark",
+			LastName:       "Davis",
+			Phone:          "+61 400 000 006",
+			Role:           "admin",
+			OrganizationID: orgID,
+			IsActive:       true,
+		}
+
+		var existingUser models.User
+		if err := s.db.Where("email = ?", org2Admin.Email).First(&existingUser).Error; err == nil {
+			// User already exists
+			fmt.Printf("• Org 2 admin already exists: %s\n", existingUser.Email)
+			users = append(users, existingUser)
+		} else {
+			// Create new user
+			if err := s.db.Create(&org2Admin).Error; err != nil {
+				return nil, err
+			}
+			users = append(users, org2Admin)
+			fmt.Printf("✓ Created org 2 admin: %s\n", org2Admin.Email)
+		}
+	}
+
+	// Also create some random test users for bulk data
+	roles := []string{"admin", "manager", "support_coordinator", "care_worker"}
+	hashedTestPassword, _ := bcrypt.GenerateFromPassword([]byte("Test123!@#"), bcrypt.DefaultCost)
+
+	// Create 2 random test users per role for bulk testing data
 	for _, role := range roles {
 		for i := 0; i < 2; i++ {
 			firstName := firstNames[rand.Intn(len(firstNames))]
@@ -233,7 +325,7 @@ func (s *Seeder) SeedUsers(orgID string) ([]models.User, error) {
 			user := models.User{
 				ID:             uuid.New().String(),
 				Email:          fmt.Sprintf("%s.%s%d@test.com", firstName, lastName, rand.Intn(100)),
-				PasswordHash:   string(hashedPassword),
+				PasswordHash:   string(hashedTestPassword), // Use Test123!@# for random users
 				FirstName:      firstName,
 				LastName:       lastName,
 				Phone:          fmt.Sprintf("+61 4%02d %03d %03d", rand.Intn(100), rand.Intn(1000), rand.Intn(1000)),
@@ -245,7 +337,7 @@ func (s *Seeder) SeedUsers(orgID string) ([]models.User, error) {
 			var existingUser models.User
 			if err := s.db.Where("email = ?", user.Email).First(&existingUser).Error; err == nil {
 				// User already exists, skip
-				fmt.Printf("• User already exists: %s\n", existingUser.Email)
+				fmt.Printf("• Random test user already exists: %s\n", existingUser.Email)
 				users = append(users, existingUser)
 			} else {
 				// Create new user
@@ -253,6 +345,7 @@ func (s *Seeder) SeedUsers(orgID string) ([]models.User, error) {
 					return nil, err
 				}
 				users = append(users, user)
+				fmt.Printf("✓ Created random test user: %s (%s)\n", user.Email, user.Role)
 			}
 		}
 	}
@@ -495,6 +588,14 @@ func (s *Seeder) PrintSummary() {
 	fmt.Printf("Participants:  %d\n", participantCount)
 	fmt.Printf("Shifts:        %d\n", shiftCount)
 	fmt.Println("=====================================")
-	fmt.Println("\nDefault password for all users: Test123!@#")
-	fmt.Println("Super Admin: superadmin@system.com")
+	fmt.Println("\nFRONTEND TEST USERS (password: 'password'):")
+	fmt.Println("• admin@dasyin.com.au - Super Admin")
+	fmt.Println("• kennedy@dasyin.com.au - Org Admin")
+	fmt.Println("• manager@dasyin.com.au - Manager")
+	fmt.Println("• coordinator@dasyin.com.au - Support Coordinator")
+	fmt.Println("• careworker@dasyin.com.au - Care Worker")
+	fmt.Println("• org2admin@dasyin.com.au - Org 2 Admin")
+	fmt.Println("\nRANDOM TEST USERS (password: 'Test123!@#'):")
+	fmt.Println("• Various @test.com users for bulk data testing")
+	fmt.Println("=====================================")
 }

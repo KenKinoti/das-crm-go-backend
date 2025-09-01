@@ -518,11 +518,16 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 
 	// Update fields
 	updates := make(map[string]interface{})
+	hourlyRate := shift.HourlyRate // Default to current rate
+	timeChanged := false
+	
 	if req.StartTime != nil {
 		updates["start_time"] = startTime
+		timeChanged = true
 	}
 	if req.EndTime != nil {
 		updates["end_time"] = endTime
+		timeChanged = true
 	}
 	if req.ActualStartTime != nil {
 		if actualStart, err := parseTimeFromString(*req.ActualStartTime); err == nil {
@@ -542,12 +547,21 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 	}
 	if req.HourlyRate != nil {
 		updates["hourly_rate"] = *req.HourlyRate
+		hourlyRate = *req.HourlyRate
+		timeChanged = true // Rate change also affects total cost
 	}
 	if req.Notes != nil {
 		updates["notes"] = *req.Notes
 	}
 	if req.CompletionNotes != nil {
 		updates["completion_notes"] = *req.CompletionNotes
+	}
+	
+	// CRITICAL FIX: Recalculate total cost when time or rate changes
+	if timeChanged && endTime.After(startTime) {
+		duration := endTime.Sub(startTime).Hours()
+		totalCost := duration * hourlyRate
+		updates["total_cost"] = totalCost
 	}
 
 	if err := h.DB.Model(&shift).Updates(updates).Error; err != nil {

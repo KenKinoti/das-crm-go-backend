@@ -38,9 +38,13 @@ else
         echo -e "${GREEN}         SEEDING COMPLETED!             ${NC}"
         echo -e "${GREEN}========================================${NC}"
         echo
-        echo -e "${GREEN}Test accounts created:${NC}"
-        echo -e "Super Admin: ${YELLOW}superadmin@system.com${NC}"
-        echo -e "Password:    ${YELLOW}Test123!@#${NC}"
+        echo -e "${GREEN}Frontend test accounts created (password: 'password'):${NC}"
+        echo -e "• ${YELLOW}admin@dasyin.com.au${NC} - Super Admin"
+        echo -e "• ${YELLOW}kennedy@dasyin.com.au${NC} - Org Admin"
+        echo -e "• ${YELLOW}manager@dasyin.com.au${NC} - Manager"
+        echo -e "• ${YELLOW}coordinator@dasyin.com.au${NC} - Support Coordinator"
+        echo -e "• ${YELLOW}careworker@dasyin.com.au${NC} - Care Worker"
+        echo -e "• ${YELLOW}org2admin@dasyin.com.au${NC} - Org 2 Admin"
         echo
         echo -e "${GREEN}Organizations:${NC}"
         echo -e "• Sunshine Care Services"
