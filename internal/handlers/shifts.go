@@ -13,6 +13,8 @@ import (
 )
 
 // parseTimeFromString accepts multiple time formats and returns a time.Time
+// IMPORTANT: This function treats all times without explicit timezone as UTC
+// to avoid any server-side timezone conversions. The frontend handles display.
 func parseTimeFromString(timeStr string) (time.Time, error) {
 	timeStr = strings.TrimSpace(timeStr)
 
@@ -29,13 +31,9 @@ func parseTimeFromString(timeStr string) (time.Time, error) {
 	// Try each format
 	for _, format := range timeFormats {
 		if t, err := time.Parse(format, timeStr); err == nil {
-			// If no timezone info, treat as local time
-			if t.Location() == time.UTC && !strings.Contains(timeStr, "Z") && !strings.Contains(timeStr, "+") && !strings.Contains(timeStr, "-") {
-				// Convert to local timezone if no timezone was specified
-				local := time.Local
-				t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), local)
-			}
-			return t, nil
+			// Always return as UTC to avoid server timezone issues
+			// The time values are preserved exactly as sent
+			return t.UTC(), nil
 		}
 	}
 
