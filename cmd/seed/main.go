@@ -22,11 +22,11 @@ var (
 	lastNames  = []string{"Smith", "Johnson", "Williams", "Brown", "Jones", "Miller", "Davis", "Wilson", "Moore", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin"}
 	streets    = []string{"Main St", "High St", "Park Ave", "Oak Rd", "Elm St", "Church St", "First Ave", "Second Ave", "Third Ave", "King St", "Queen St", "Victoria St"}
 	suburbs    = []string{"Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Gold Coast", "Newcastle", "Canberra", "Wollongong", "Sunshine Coast"}
-	
+
 	// Medical conditions for participants
-	conditions = []string{"Diabetes Type 2", "Hypertension", "Autism Spectrum Disorder", "Cerebral Palsy", "Down Syndrome", "Epilepsy", "Multiple Sclerosis", "Spinal Cord Injury"}
+	conditions  = []string{"Diabetes Type 2", "Hypertension", "Autism Spectrum Disorder", "Cerebral Palsy", "Down Syndrome", "Epilepsy", "Multiple Sclerosis", "Spinal Cord Injury"}
 	medications = []string{"Metformin", "Lisinopril", "Risperidone", "Baclofen", "Valproate", "Carbamazepine", "Interferon beta", "Gabapentin"}
-	allergies = []string{"None", "Penicillin", "Peanuts", "Latex", "Shellfish", "None", "None"} // More "None" for realistic distribution
+	allergies   = []string{"None", "Penicillin", "Peanuts", "Latex", "Shellfish", "None", "None"} // More "None" for realistic distribution
 )
 
 type Seeder struct {
@@ -188,7 +188,7 @@ func (s *Seeder) SeedOrganizations() ([]models.Organization, error) {
 func (s *Seeder) SeedUsers(orgID string) ([]models.User, error) {
 	// Use 'password' to match frontend mock authentication
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
-	
+
 	users := []models.User{}
 
 	// Get org info to determine which org we're creating users for
@@ -315,13 +315,13 @@ func (s *Seeder) SeedUsers(orgID string) ([]models.User, error) {
 		for i := 0; i < 2; i++ {
 			firstName := firstNames[rand.Intn(len(firstNames))]
 			lastName := lastNames[rand.Intn(len(lastNames))]
-			
+
 			// Make some users inactive for testing (10% chance)
 			isActive := true
 			if rand.Intn(10) == 0 { // 10% chance to be inactive
 				isActive = false
 			}
-			
+
 			user := models.User{
 				ID:             uuid.New().String(),
 				Email:          fmt.Sprintf("%s.%s%d@test.com", firstName, lastName, rand.Intn(100)),
@@ -333,7 +333,7 @@ func (s *Seeder) SeedUsers(orgID string) ([]models.User, error) {
 				OrganizationID: orgID,
 				IsActive:       isActive,
 			}
-			
+
 			var existingUser models.User
 			if err := s.db.Where("email = ?", user.Email).First(&existingUser).Error; err == nil {
 				// User already exists, skip
@@ -356,18 +356,18 @@ func (s *Seeder) SeedUsers(orgID string) ([]models.User, error) {
 
 func (s *Seeder) SeedParticipants(orgID string) ([]models.Participant, error) {
 	participants := []models.Participant{}
-	
+
 	// Create 15-20 participants per organization
 	numParticipants := 15 + rand.Intn(6)
-	
+
 	for i := 0; i < numParticipants; i++ {
 		firstName := firstNames[rand.Intn(len(firstNames))]
 		lastName := lastNames[rand.Intn(len(lastNames))]
-		
+
 		// Random date of birth between 18 and 80 years ago
 		age := 18 + rand.Intn(63)
 		dob := time.Now().AddDate(-age, -rand.Intn(12), -rand.Intn(28))
-		
+
 		participant := models.Participant{
 			ID:          uuid.New().String(),
 			FirstName:   firstName,
@@ -398,11 +398,11 @@ func (s *Seeder) SeedParticipants(orgID string) ([]models.Participant, error) {
 			OrganizationID: orgID,
 			IsActive:       rand.Float32() > 0.1, // 90% active
 		}
-		
+
 		if err := s.db.Create(&participant).Error; err != nil {
 			return nil, err
 		}
-		
+
 		// Create 1-2 emergency contacts per participant
 		numContacts := 1 + rand.Intn(2)
 		for j := 0; j < numContacts; j++ {
@@ -420,10 +420,10 @@ func (s *Seeder) SeedParticipants(orgID string) ([]models.Participant, error) {
 				return nil, err
 			}
 		}
-		
+
 		participants = append(participants, participant)
 	}
-	
+
 	fmt.Printf("✓ Created %d participants with emergency contacts\n", len(participants))
 	return participants, nil
 }
@@ -436,11 +436,11 @@ func (s *Seeder) SeedShifts(orgID string, users []models.User, participants []mo
 			careWorkers = append(careWorkers, user)
 		}
 	}
-	
+
 	if len(careWorkers) == 0 || len(participants) == 0 {
 		return nil
 	}
-	
+
 	shiftCount := 0
 	// Create shifts for the past month and upcoming week
 	for days := -30; days <= 7; days++ {
@@ -449,15 +449,15 @@ func (s *Seeder) SeedShifts(orgID string, users []models.User, participants []mo
 		if days >= 0 && days <= 2 {
 			numShifts += 3 // Extra shifts in critical timeframe for ETA visibility
 		}
-		
+
 		for i := 0; i < numShifts; i++ {
 			shiftDate := time.Now().AddDate(0, 0, days)
 			startHour := 6 + rand.Intn(12) // Between 6 AM and 6 PM
-			duration := 2 + rand.Intn(7)    // 2-8 hours
-			
+			duration := 2 + rand.Intn(7)   // 2-8 hours
+
 			startTime := time.Date(shiftDate.Year(), shiftDate.Month(), shiftDate.Day(), startHour, 0, 0, 0, time.Local)
 			endTime := startTime.Add(time.Duration(duration) * time.Hour)
-			
+
 			// Determine status based on date
 			status := "scheduled"
 			if days < -7 {
@@ -466,7 +466,7 @@ func (s *Seeder) SeedShifts(orgID string, users []models.User, participants []mo
 				statusOptions := []string{"completed", "in_progress", "cancelled"}
 				status = statusOptions[rand.Intn(len(statusOptions))]
 			}
-			
+
 			shift := models.Shift{
 				ID:            uuid.New().String(),
 				ParticipantID: participants[rand.Intn(len(participants))].ID,
@@ -479,21 +479,21 @@ func (s *Seeder) SeedShifts(orgID string, users []models.User, participants []mo
 				Notes:         "Seeded test shift - can be safely deleted",
 				HourlyRate:    65.00 + float64(rand.Intn(30)),
 			}
-			
+
 			if status == "completed" {
 				actualStart := startTime.Add(time.Duration(-rand.Intn(15)) * time.Minute)
 				actualEnd := endTime.Add(time.Duration(rand.Intn(30)-15) * time.Minute)
 				shift.ActualStartTime = &actualStart
 				shift.ActualEndTime = &actualEnd
 			}
-			
+
 			if err := s.db.Create(&shift).Error; err != nil {
 				return err
 			}
 			shiftCount++
 		}
 	}
-	
+
 	fmt.Printf("✓ Created %d shifts\n", shiftCount)
 	return nil
 }
@@ -501,21 +501,21 @@ func (s *Seeder) SeedShifts(orgID string, users []models.User, participants []mo
 func (s *Seeder) SeedCarePlan(participantID string) error {
 	goals := []string{
 		"Improve daily living skills",
-		"Increase social participation", 
+		"Increase social participation",
 		"Maintain physical health",
 		"Develop communication skills",
 		"Achieve greater independence",
 	}
-	
+
 	// Get a random coordinator to be the creator
 	var coordinator models.User
 	if err := s.db.Where("role = ?", "support_coordinator").First(&coordinator).Error; err != nil {
 		return err
 	}
-	
+
 	startDate := time.Now().AddDate(0, -rand.Intn(6), 0)
 	endDate := startDate.AddDate(1, rand.Intn(6), 0)
-	
+
 	carePlan := models.CarePlan{
 		ID:            uuid.New().String(),
 		ParticipantID: participantID,
@@ -527,18 +527,18 @@ func (s *Seeder) SeedCarePlan(participantID string) error {
 		Status:        []string{"active", "completed", "cancelled"}[rand.Intn(3)],
 		CreatedBy:     coordinator.ID,
 	}
-	
+
 	if err := s.db.Create(&carePlan).Error; err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
 func (s *Seeder) CleanTestData() error {
 	fmt.Println("Cleaning all test data...")
 	fmt.Println("=====================================")
-	
+
 	// Delete in reverse order of dependencies
 	tables := []string{
 		"care_plan_items",
@@ -553,7 +553,7 @@ func (s *Seeder) CleanTestData() error {
 		"users",
 		"organizations",
 	}
-	
+
 	for _, table := range tables {
 		result := s.db.Exec(fmt.Sprintf("DELETE FROM %s WHERE notes LIKE '%%Seeded test%%' OR email LIKE '%%@test.com' OR email LIKE '%%@sunshinecare.com.au' OR email LIKE '%%@melbournesupport.com.au' OR name LIKE '%%Sunshine Care%%' OR name LIKE '%%Melbourne Support%%'", table))
 		if result.Error != nil {
@@ -566,7 +566,7 @@ func (s *Seeder) CleanTestData() error {
 		}
 		fmt.Printf("✓ Cleaned table: %s (removed %d records)\n", table, result.RowsAffected)
 	}
-	
+
 	fmt.Println("=====================================")
 	fmt.Println("Test data cleaned successfully!")
 	return nil
@@ -574,12 +574,12 @@ func (s *Seeder) CleanTestData() error {
 
 func (s *Seeder) PrintSummary() {
 	var orgCount, userCount, participantCount, shiftCount int64
-	
+
 	s.db.Model(&models.Organization{}).Count(&orgCount)
 	s.db.Model(&models.User{}).Count(&userCount)
 	s.db.Model(&models.Participant{}).Count(&participantCount)
 	s.db.Model(&models.Shift{}).Count(&shiftCount)
-	
+
 	fmt.Println("\n=====================================")
 	fmt.Println("SEEDING SUMMARY")
 	fmt.Println("=====================================")

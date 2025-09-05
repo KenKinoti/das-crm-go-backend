@@ -381,8 +381,8 @@ func (suite *IntegrationTestSuite) TestShiftsManagement() {
 
 	suite.Run("Update shift status", func() {
 		statusData := map[string]interface{}{
-			"status":             "in_progress",
-			"actual_start_time":  "2023-12-15T09:05:00Z",
+			"status":            "in_progress",
+			"actual_start_time": "2023-12-15T09:05:00Z",
 		}
 
 		w := suite.makeAuthenticatedRequest("PATCH", fmt.Sprintf("/api/v1/shifts/%s/status", shiftID), statusData)
@@ -615,10 +615,10 @@ func TestIntegrationSuite(t *testing.T) {
 func TestMain(m *testing.M) {
 	// Setup
 	gin.SetMode(gin.TestMode)
-	
+
 	// Run tests
 	code := m.Run()
-	
+
 	// Cleanup
 	os.Exit(code)
 }

@@ -34,7 +34,7 @@ type User struct {
 	FirstName      string         `json:"first_name" gorm:"type:varchar(100);not null"`
 	LastName       string         `json:"last_name" gorm:"type:varchar(100);not null"`
 	Phone          string         `json:"phone" gorm:"type:varchar(20)"`
-	Role           string         `json:"role" gorm:"type:varchar(50);not null;index"` // admin, manager, care_worker, support_coordinator
+	Role           string         `json:"role" gorm:"type:varchar(50);not null;index"`     // admin, manager, care_worker, support_coordinator
 	RoleID         *string        `json:"role_id,omitempty" gorm:"type:varchar(36);index"` // New role-based system
 	OrganizationID string         `json:"organization_id" gorm:"type:varchar(36);not null;index"`
 	IsActive       bool           `json:"is_active" gorm:"default:true;index"`
@@ -376,17 +376,19 @@ func SeedDatabase(db *gorm.DB) error {
 		return err
 	}
 
+	// Standard password hash for "password"
+	passwordHash := "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi"
+
 	// Create default admin user
 	admin := User{
 		ID:             "user_admin",
 		Email:          "kennedy@dasyin.com.au",
 		FirstName:      "Ken",
 		LastName:       "Kinoti",
-		Role:           "super_admin",
+		Role:           "admin",
 		OrganizationID: org.ID,
 		IsActive:       true,
-		// Note: Password should be hashed in real implementation
-		PasswordHash: "$2a$10$n0NvhICRgFPZq/EaeWxW6un3Xrym3.23GJpk4wYchZmpxgETxQani", // "Test123!@#"
+		PasswordHash:   passwordHash,
 	}
 
 	// Always ensure the protected system admin exists and has correct credentials
@@ -402,11 +404,11 @@ func SeedDatabase(db *gorm.DB) error {
 		// User exists, ALWAYS update to ensure correct password and role
 		// This protects against any manual changes or corruption
 		if err := db.Model(&existingUser).Updates(map[string]interface{}{
-			"password_hash": admin.PasswordHash,
-			"role": admin.Role,
-			"is_active": true,
-			"first_name": admin.FirstName,
-			"last_name": admin.LastName,
+			"password_hash":   admin.PasswordHash,
+			"role":            admin.Role,
+			"is_active":       true,
+			"first_name":      admin.FirstName,
+			"last_name":       admin.LastName,
 			"organization_id": admin.OrganizationID,
 		}).Error; err != nil {
 			return err
@@ -429,6 +431,131 @@ func SeedDatabase(db *gorm.DB) error {
 			Permission: perm,
 		}
 		db.FirstOrCreate(&userPerm, "user_id = ? AND permission = ?", admin.ID, perm)
+	}
+
+	// Create all required test users
+	testUsers := []User{
+		{
+			ID:             "user_super_admin",
+			Email:          "admin@dasyin.com.au",
+			FirstName:      "Super",
+			LastName:       "Admin",
+			Role:           "super_admin",
+			OrganizationID: org.ID,
+			IsActive:       true,
+			PasswordHash:   passwordHash,
+		},
+		{
+			ID:             "user_manager",
+			Email:          "manager@dasyin.com.au",
+			FirstName:      "Team",
+			LastName:       "Manager",
+			Role:           "manager",
+			OrganizationID: org.ID,
+			IsActive:       true,
+			PasswordHash:   passwordHash,
+		},
+		{
+			ID:             "user_coordinator",
+			Email:          "coordinator@dasyin.com.au",
+			FirstName:      "Support",
+			LastName:       "Coordinator",
+			Role:           "support_coordinator",
+			OrganizationID: org.ID,
+			IsActive:       true,
+			PasswordHash:   passwordHash,
+		},
+		{
+			ID:             "user_careworker",
+			Email:          "careworker@dasyin.com.au",
+			FirstName:      "Care",
+			LastName:       "Worker",
+			Role:           "care_worker",
+			OrganizationID: org.ID,
+			IsActive:       true,
+			PasswordHash:   passwordHash,
+		},
+		{
+			ID:             "user_org2_admin",
+			Email:          "org2admin@dasyin.com.au",
+			FirstName:      "Org2",
+			LastName:       "Admin",
+			Role:           "admin",
+			OrganizationID: org.ID,
+			IsActive:       true,
+			PasswordHash:   passwordHash,
+		},
+	}
+
+	// Create or update each test user
+	for _, user := range testUsers {
+		var existingUser User
+		err := db.Where("email = ?", user.Email).First(&existingUser).Error
+		if err != nil {
+			// User doesn't exist, create it
+			if err := db.Create(&user).Error; err != nil {
+				return err
+			}
+		} else {
+			// User exists, update to ensure correct credentials
+			if err := db.Model(&existingUser).Updates(map[string]interface{}{
+				"password_hash":   user.PasswordHash,
+				"role":            user.Role,
+				"is_active":       true,
+				"first_name":      user.FirstName,
+				"last_name":       user.LastName,
+				"organization_id": user.OrganizationID,
+			}).Error; err != nil {
+				return err
+			}
+		}
+
+		// Add permissions based on role
+		var userPerms []string
+		switch user.Role {
+		case "super_admin":
+			userPerms = permissions // All permissions
+		case "admin":
+			userPerms = []string{
+				"create_users", "read_users", "update_users", "delete_users",
+				"create_participants", "read_participants", "update_participants", "delete_participants",
+				"create_shifts", "read_shifts", "update_shifts", "delete_shifts",
+				"create_documents", "read_documents", "update_documents", "delete_documents",
+				"create_care_plans", "read_care_plans", "update_care_plans", "delete_care_plans",
+				"view_reports", "manage_organization",
+			}
+		case "manager":
+			userPerms = []string{
+				"read_users", "update_users",
+				"create_participants", "read_participants", "update_participants",
+				"create_shifts", "read_shifts", "update_shifts", "delete_shifts",
+				"create_documents", "read_documents", "update_documents",
+				"create_care_plans", "read_care_plans", "update_care_plans",
+				"view_reports",
+			}
+		case "support_coordinator":
+			userPerms = []string{
+				"read_participants", "update_participants",
+				"read_shifts", "update_shifts",
+				"create_documents", "read_documents", "update_documents",
+				"create_care_plans", "read_care_plans", "update_care_plans",
+			}
+		case "care_worker":
+			userPerms = []string{
+				"read_participants",
+				"read_shifts", "update_shifts",
+				"read_documents",
+				"read_care_plans",
+			}
+		}
+
+		for _, perm := range userPerms {
+			userPerm := UserPermission{
+				UserID:     user.ID,
+				Permission: perm,
+			}
+			db.FirstOrCreate(&userPerm, "user_id = ? AND permission = ?", user.ID, perm)
+		}
 	}
 
 	return nil

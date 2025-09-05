@@ -1,0 +1,53 @@
+# Ignore version control
+.git
+.gitignore
+
+# Ignore documentation
+*.md
+README.md
+CHANGELOG.md
+docs/
+
+# Ignore test files
+*_test.go
+tests/
+
+# Ignore build artifacts
+bin/
+*.exe
+gofiber-ago-crm-backend
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore logs
+logs/
+*.log
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore local environment files
+.env
+.env.local
+.env.development
+# .env.production - needed for Cloud Run deployment
+
+# Ignore postman collections
+postman/
+*.postman_collection.json
+
+# Ignore scripts
+scripts/
+*.sh
+*.bat
+
+# Ignore temporary files
+tmp/
+temp/
+nul

@@ -23,6 +23,9 @@ func Initialize(databaseURL string) (*gorm.DB, error) {
 	} else if strings.HasPrefix(databaseURL, "sqlite://") {
 		dbPath := strings.TrimPrefix(databaseURL, "sqlite://")
 		dialector = sqlite.Open(dbPath)
+	} else if strings.HasPrefix(databaseURL, "file:") {
+		// In-memory SQLite database
+		dialector = sqlite.Open(databaseURL)
 	} else {
 		return nil, fmt.Errorf("unsupported database URL: %s", databaseURL)
 	}

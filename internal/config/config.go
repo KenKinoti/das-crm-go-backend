@@ -25,7 +25,7 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		Environment:        getEnv("ENVIRONMENT", "development"),
-		DatabaseURL:        getEnv("DATABASE_URL", "sqlite://./care_crm.db"),
+		DatabaseURL:        getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/ago_crm_db?sslmode=disable"),
 		JWTSecret:          getEnv("JWT_SECRET", "default-secret-change-me"),
 		JWTExpiry:          parseDuration(getEnv("JWT_EXPIRY", "24h")),
 		RefreshTokenExpiry: parseDuration(getEnv("REFRESH_TOKEN_EXPIRY", "168h")),

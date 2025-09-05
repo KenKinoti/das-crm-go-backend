@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log"
 
-	"golang.org/x/crypto/bcrypt"
 	"github.com/joho/godotenv"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/config"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/database"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/models"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -63,7 +63,7 @@ func main() {
 	var userCount, participantCount, shiftCount int64
 	db.Model(&models.User{}).Where("organization_id = ?", org.ID).Count(&userCount)
 	db.Model(&models.Participant{}).Where("organization_id = ?", org.ID).Count(&participantCount)
-	
+
 	// For shifts, we need to join with users to get the organization
 	db.Table("shifts").
 		Joins("JOIN users ON shifts.staff_id = users.id").

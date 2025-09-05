@@ -30,12 +30,12 @@ func main() {
 	fmt.Println("=====================================")
 	fmt.Println("Password for ALL users: Test123!@#")
 	fmt.Println("=====================================")
-	
+
 	roleGroups := make(map[string][]models.User)
 	for _, user := range users {
 		roleGroups[user.Role] = append(roleGroups[user.Role], user)
 	}
-	
+
 	for role, roleUsers := range roleGroups {
 		fmt.Printf("\n%s USERS:\n", role)
 		for _, user := range roleUsers {

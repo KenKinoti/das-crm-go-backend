@@ -28,14 +28,18 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Run migrations
-	if err := models.MigrateExtendedDB(db); err != nil {
-		log.Fatal("Failed to migrate database:", err)
-	}
+	// Run migrations (skip if SKIP_MIGRATIONS is set)
+	if os.Getenv("SKIP_MIGRATIONS") != "true" {
+		if err := models.MigrateExtendedDB(db); err != nil {
+			log.Fatal("Failed to migrate database:", err)
+		}
 
-	// Create indexes
-	if err := models.CreateIndexes(db); err != nil {
-		log.Fatal("Failed to create indexes:", err)
+		// Create indexes
+		if err := models.CreateIndexes(db); err != nil {
+			log.Fatal("Failed to create indexes:", err)
+		}
+	} else {
+		log.Println("Skipping database migrations (SKIP_MIGRATIONS=true)")
 	}
 
 	// Seed database (optional, only for development)

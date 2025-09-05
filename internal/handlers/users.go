@@ -97,13 +97,13 @@ func (h *Handler) GetUsers(c *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
-	
+
 	// Allow higher limits for super admin and admin users
 	maxLimit := 100
 	if userRole == "super_admin" || userRole == "admin" {
 		maxLimit = 1000
 	}
-	
+
 	if limit < 1 || limit > maxLimit {
 		limit = 10
 	}
@@ -176,7 +176,7 @@ func (h *Handler) GetUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"users":      userResponses,
+			"users": userResponses,
 			"pagination": gin.H{
 				"page":        page,
 				"limit":       limit,
@@ -340,7 +340,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	} else {
 		query = h.DB.Where("id = ? AND organization_id = ?", userID, orgID)
 	}
-	
+
 	if err := query.First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -457,7 +457,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	// Get current user info
 	currentUserID, _ := c.Get("user_id")
 	currentUserRole, _ := c.Get("user_role")
-	
+
 	// Prevent self-deletion
 	if currentUserID == userID {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -469,7 +469,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Protect system admin user from deletion
 	var checkUser models.User
 	if err := h.DB.Where("id = ?", userID).First(&checkUser).Error; err == nil {
@@ -493,7 +493,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	} else {
 		query = h.DB.Where("id = ? AND organization_id = ?", userID, orgID)
 	}
-	
+
 	if err := query.First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{

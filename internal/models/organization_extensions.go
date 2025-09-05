@@ -29,23 +29,23 @@ type OrganizationBranding struct {
 
 // OrganizationSettings represents configuration settings for organizations
 type OrganizationSettings struct {
-	ID                    string    `json:"id" gorm:"type:varchar(36);primaryKey"`
-	OrganizationID        string    `json:"organization_id" gorm:"type:varchar(36);not null;uniqueIndex"`
-	Timezone              string    `json:"timezone" gorm:"type:varchar(50);default:'Australia/Adelaide'"`
-	DateFormat            string    `json:"date_format" gorm:"type:varchar(20);default:'DD/MM/YYYY'"`
-	TimeFormat            string    `json:"time_format" gorm:"type:varchar(20);default:'24h'"`
-	Currency              string    `json:"currency" gorm:"type:varchar(3);default:'AUD'"`
-	Language              string    `json:"language" gorm:"type:varchar(10);default:'en-AU'"`
-	DefaultShiftDuration  int       `json:"default_shift_duration" gorm:"default:120"` // minutes
-	MaxShiftDuration      int       `json:"max_shift_duration" gorm:"default:720"`     // minutes
-	MinShiftNotice        int       `json:"min_shift_notice" gorm:"default:30"`        // minutes
-	RequireShiftNotes     bool      `json:"require_shift_notes" gorm:"default:false"`
-	RequirePhotoEvidence  bool      `json:"require_photo_evidence" gorm:"default:false"`
-	AutoAssignShifts      bool      `json:"auto_assign_shifts" gorm:"default:false"`
-	EnableSMSNotifications bool      `json:"enable_sms_notifications" gorm:"default:true"`
-	EnableEmailNotifications bool    `json:"enable_email_notifications" gorm:"default:true"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	ID                       string    `json:"id" gorm:"type:varchar(36);primaryKey"`
+	OrganizationID           string    `json:"organization_id" gorm:"type:varchar(36);not null;uniqueIndex"`
+	Timezone                 string    `json:"timezone" gorm:"type:varchar(50);default:'Australia/Adelaide'"`
+	DateFormat               string    `json:"date_format" gorm:"type:varchar(20);default:'DD/MM/YYYY'"`
+	TimeFormat               string    `json:"time_format" gorm:"type:varchar(20);default:'24h'"`
+	Currency                 string    `json:"currency" gorm:"type:varchar(3);default:'AUD'"`
+	Language                 string    `json:"language" gorm:"type:varchar(10);default:'en-AU'"`
+	DefaultShiftDuration     int       `json:"default_shift_duration" gorm:"default:120"` // minutes
+	MaxShiftDuration         int       `json:"max_shift_duration" gorm:"default:720"`     // minutes
+	MinShiftNotice           int       `json:"min_shift_notice" gorm:"default:30"`        // minutes
+	RequireShiftNotes        bool      `json:"require_shift_notes" gorm:"default:false"`
+	RequirePhotoEvidence     bool      `json:"require_photo_evidence" gorm:"default:false"`
+	AutoAssignShifts         bool      `json:"auto_assign_shifts" gorm:"default:false"`
+	EnableSMSNotifications   bool      `json:"enable_sms_notifications" gorm:"default:true"`
+	EnableEmailNotifications bool      `json:"enable_email_notifications" gorm:"default:true"`
+	CreatedAt                time.Time `json:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at"`
 
 	// Relationships
 	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
@@ -53,10 +53,10 @@ type OrganizationSettings struct {
 
 // OrganizationSubscription represents billing and subscription details
 type OrganizationSubscription struct {
-	ID                  string     `json:"id" gorm:"type:varchar(36);primaryKey"`
-	OrganizationID      string     `json:"organization_id" gorm:"type:varchar(36);not null;uniqueIndex"`
-	PlanName           string     `json:"plan_name" gorm:"type:varchar(50);not null"` // starter, professional, enterprise
-	Status             string     `json:"status" gorm:"type:varchar(20);default:'active'"`  // active, suspended, cancelled
+	ID                 string     `json:"id" gorm:"type:varchar(36);primaryKey"`
+	OrganizationID     string     `json:"organization_id" gorm:"type:varchar(36);not null;uniqueIndex"`
+	PlanName           string     `json:"plan_name" gorm:"type:varchar(50);not null"`      // starter, professional, enterprise
+	Status             string     `json:"status" gorm:"type:varchar(20);default:'active'"` // active, suspended, cancelled
 	BillingEmail       string     `json:"billing_email" gorm:"type:varchar(255);not null"`
 	MonthlyRate        float64    `json:"monthly_rate" gorm:"type:decimal(10,2);not null"`
 	MaxUsers           int        `json:"max_users" gorm:"not null;default:5"`
@@ -77,15 +77,15 @@ type OrganizationSubscription struct {
 
 // Role represents system roles with organization-specific permissions
 type Role struct {
-	ID             string           `json:"id" gorm:"type:varchar(36);primaryKey"`
-	OrganizationID string           `json:"organization_id" gorm:"type:varchar(36);not null;index"`
-	Name           string           `json:"name" gorm:"type:varchar(50);not null"`
-	Description    string           `json:"description" gorm:"type:text"`
-	IsSystem       bool             `json:"is_system" gorm:"default:false"` // System roles cannot be deleted
-	IsActive       bool             `json:"is_active" gorm:"default:true"`
-	CreatedAt      time.Time        `json:"created_at"`
-	UpdatedAt      time.Time        `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt   `json:"-" gorm:"index"`
+	ID             string         `json:"id" gorm:"type:varchar(36);primaryKey"`
+	OrganizationID string         `json:"organization_id" gorm:"type:varchar(36);not null;index"`
+	Name           string         `json:"name" gorm:"type:varchar(50);not null"`
+	Description    string         `json:"description" gorm:"type:text"`
+	IsSystem       bool           `json:"is_system" gorm:"default:false"` // System roles cannot be deleted
+	IsActive       bool           `json:"is_active" gorm:"default:true"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index"`
 
 	// Relationships
 	Organization    Organization     `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
@@ -136,8 +136,8 @@ type AuditLog struct {
 	Action         string    `json:"action" gorm:"type:varchar(100);not null;index"` // create_shift, update_participant, etc.
 	EntityType     string    `json:"entity_type" gorm:"type:varchar(50);not null"`   // shift, participant, user, etc.
 	EntityID       string    `json:"entity_id" gorm:"type:varchar(36);not null"`
-	OldValues      string    `json:"old_values" gorm:"type:jsonb"`      // JSON of old values
-	NewValues      string    `json:"new_values" gorm:"type:jsonb"`      // JSON of new values
+	OldValues      string    `json:"old_values" gorm:"type:jsonb"` // JSON of old values
+	NewValues      string    `json:"new_values" gorm:"type:jsonb"` // JSON of new values
 	IPAddress      string    `json:"ip_address" gorm:"type:varchar(45)"`
 	UserAgent      string    `json:"user_agent" gorm:"type:varchar(500)"`
 	CreatedAt      time.Time `json:"created_at"`
@@ -233,16 +233,16 @@ func SetupOrganizationDefaults(db *gorm.DB, orgID string) error {
 
 	// Create default settings
 	settings := OrganizationSettings{
-		OrganizationID:        orgID,
-		Timezone:              "Australia/Adelaide",
-		DateFormat:            "DD/MM/YYYY",
-		TimeFormat:            "24h",
-		Currency:              "AUD",
-		Language:              "en-AU",
-		DefaultShiftDuration:  120,
-		MaxShiftDuration:      720,
-		MinShiftNotice:        30,
-		EnableSMSNotifications: true,
+		OrganizationID:           orgID,
+		Timezone:                 "Australia/Adelaide",
+		DateFormat:               "DD/MM/YYYY",
+		TimeFormat:               "24h",
+		Currency:                 "AUD",
+		Language:                 "en-AU",
+		DefaultShiftDuration:     120,
+		MaxShiftDuration:         720,
+		MinShiftNotice:           30,
+		EnableSMSNotifications:   true,
 		EnableEmailNotifications: true,
 	}
 	db.FirstOrCreate(&settings, "organization_id = ?", orgID)
@@ -250,28 +250,28 @@ func SetupOrganizationDefaults(db *gorm.DB, orgID string) error {
 	// Create default roles
 	adminRole := Role{
 		OrganizationID: orgID,
-		Name:          "Administrator",
-		Description:   "Full system access",
-		IsSystem:      true,
-		IsActive:      true,
+		Name:           "Administrator",
+		Description:    "Full system access",
+		IsSystem:       true,
+		IsActive:       true,
 	}
 	db.FirstOrCreate(&adminRole, "organization_id = ? AND name = ?", orgID, "Administrator")
 
 	managerRole := Role{
 		OrganizationID: orgID,
-		Name:          "Manager",
-		Description:   "Can manage staff and participants",
-		IsSystem:      true,
-		IsActive:      true,
+		Name:           "Manager",
+		Description:    "Can manage staff and participants",
+		IsSystem:       true,
+		IsActive:       true,
 	}
 	db.FirstOrCreate(&managerRole, "organization_id = ? AND name = ?", orgID, "Manager")
 
 	careWorkerRole := Role{
 		OrganizationID: orgID,
-		Name:          "Care Worker",
-		Description:   "Can complete assigned shifts",
-		IsSystem:      true,
-		IsActive:      true,
+		Name:           "Care Worker",
+		Description:    "Can complete assigned shifts",
+		IsSystem:       true,
+		IsActive:       true,
 	}
 	db.FirstOrCreate(&careWorkerRole, "organization_id = ? AND name = ?", orgID, "Care Worker")
 

@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/config"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/middleware"
+	"gorm.io/gorm"
 )
 
 type Handler struct {
@@ -36,7 +36,7 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 			auth.OPTIONS("/refresh", func(c *gin.Context) {
 				c.Status(200)
 			})
-			
+
 			auth.POST("/login", h.Login)
 			auth.POST("/refresh", h.RefreshToken)
 			auth.GET("/test-accounts", h.GetTestAccounts)
@@ -99,15 +99,15 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 			{
 				organization.GET("", h.GetOrganization)
 				organization.PUT("", middleware.RequireRole("admin", "manager"), h.UpdateOrganization)
-				
+
 				// Organization branding routes
 				organization.GET("/branding", h.GetOrganizationBranding)
 				organization.PUT("/branding", middleware.RequireRole("admin"), h.UpdateOrganizationBranding)
-				
+
 				// Organization settings routes
 				organization.GET("/settings", h.GetOrganizationSettings)
 				organization.PUT("/settings", middleware.RequireRole("admin"), h.UpdateOrganizationSettings)
-				
+
 				// Organization subscription routes
 				organization.GET("/subscription", middleware.RequireRole("admin"), h.GetOrganizationSubscription)
 				organization.PUT("/subscription", middleware.RequireRole("admin"), h.UpdateOrganizationSubscription)
@@ -137,7 +137,7 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 				admin.POST("/seed-advanced", h.SeedAdvanced)
 				admin.DELETE("/clear-test-data", middleware.RequireElevatedAuth(), h.ClearTestData)
 				admin.DELETE("/truncate", middleware.RequireElevatedAuth(), middleware.RequirePasswordConfirmation(), h.TruncateDatabase)
-				
+
 				// Database management routes (admin can view stats)
 				admin.GET("/stats", h.GetSystemStats)
 				admin.GET("/tables", h.GetTableStats)

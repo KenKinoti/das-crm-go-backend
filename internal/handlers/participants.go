@@ -51,13 +51,13 @@ func (h *Handler) GetParticipants(c *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
-	
+
 	// Allow higher limits for super admin and admin users
 	maxLimit := 100
 	if userRole == "super_admin" || userRole == "admin" {
 		maxLimit = 1000
 	}
-	
+
 	if limit < 1 || limit > maxLimit {
 		limit = 10
 	}
@@ -166,15 +166,15 @@ func (h *Handler) GetParticipant(c *gin.Context) {
 }
 
 type CreateParticipantRequest struct {
-	FirstName      string                    `json:"first_name" binding:"required"`
-	LastName       string                    `json:"last_name" binding:"required"`
-	DateOfBirth    time.Time                 `json:"date_of_birth" binding:"required"`
-	NDISNumber     string                    `json:"ndis_number"`
-	Email          string                    `json:"email" binding:"omitempty,email"`
-	Phone          string                    `json:"phone"`
-	Address        models.Address            `json:"address"`
-	MedicalInfo    models.MedicalInformation `json:"medical_information"`
-	Funding        models.FundingInformation `json:"funding"`
+	FirstName         string                                     `json:"first_name" binding:"required"`
+	LastName          string                                     `json:"last_name" binding:"required"`
+	DateOfBirth       time.Time                                  `json:"date_of_birth" binding:"required"`
+	NDISNumber        string                                     `json:"ndis_number"`
+	Email             string                                     `json:"email" binding:"omitempty,email"`
+	Phone             string                                     `json:"phone"`
+	Address           models.Address                             `json:"address"`
+	MedicalInfo       models.MedicalInformation                  `json:"medical_information"`
+	Funding           models.FundingInformation                  `json:"funding"`
 	EmergencyContacts []CreateParticipantEmergencyContactRequest `json:"emergency_contacts,omitempty"`
 }
 

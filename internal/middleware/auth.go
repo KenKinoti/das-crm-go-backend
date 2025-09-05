@@ -78,7 +78,7 @@ func AuthRequired(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		// Set user information in context
-		fmt.Printf("Setting context - user_id: %v, email: %v, role: %v, org_id: %v\n", 
+		fmt.Printf("Setting context - user_id: %v, email: %v, role: %v, org_id: %v\n",
 			claims["user_id"], claims["email"], claims["role"], claims["org_id"])
 		c.Set("user_id", claims["user_id"])
 		c.Set("user_email", claims["email"])
@@ -200,7 +200,7 @@ func RequireElevatedAuth() gin.HandlerFunc {
 		userIDStr := userID.(string)
 
 		// Log the elevated access attempt for security audit
-		fmt.Printf("Elevated auth attempt - UserID: %s, Role: %s, IP: %s, UserAgent: %s\n", 
+		fmt.Printf("Elevated auth attempt - UserID: %s, Role: %s, IP: %s, UserAgent: %s\n",
 			userIDStr, roleStr, c.ClientIP(), c.GetHeader("User-Agent"))
 
 		// Only super_admin or verified admin can proceed
