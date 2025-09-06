@@ -216,6 +216,11 @@ func MigrateExtendedDB(db *gorm.DB) error {
 		&RolePermission{},
 		&OrganizationInvitation{},
 		&AuditLog{},
+		&WorkerAvailability{},
+		&WorkerAvailabilityException{},
+		&WorkerPreferences{},
+		&WorkerSkill{},
+		&WorkerLocationPreference{},
 	)
 }
 

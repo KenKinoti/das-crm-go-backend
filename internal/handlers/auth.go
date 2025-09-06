@@ -30,6 +30,7 @@ type UserResponse struct {
 	Phone          string     `json:"phone"`
 	Role           string     `json:"role"`
 	OrganizationID string     `json:"organization_id"`
+	Timezone       string     `json:"timezone"`
 	IsActive       bool       `json:"is_active"`
 	LastLoginAt    *time.Time `json:"last_login_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -144,6 +145,7 @@ func (h *Handler) Login(c *gin.Context) {
 		Phone:          user.Phone,
 		Role:           user.Role,
 		OrganizationID: user.OrganizationID,
+		Timezone:       user.Timezone,
 		IsActive:       user.IsActive,
 		LastLoginAt:    user.LastLoginAt,
 		CreatedAt:      user.CreatedAt,

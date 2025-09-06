@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/models"
+	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/utils"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -48,6 +49,7 @@ func (h *Handler) GetCurrentUser(c *gin.Context) {
 		Phone:          user.Phone,
 		Role:           user.Role,
 		OrganizationID: user.OrganizationID,
+		Timezone:       user.Timezone,
 		IsActive:       user.IsActive,
 		LastLoginAt:    user.LastLoginAt,
 		CreatedAt:      user.CreatedAt,
@@ -166,6 +168,7 @@ func (h *Handler) GetUsers(c *gin.Context) {
 			Phone:          user.Phone,
 			Role:           user.Role,
 			OrganizationID: user.OrganizationID,
+			Timezone:       user.Timezone,
 			IsActive:       user.IsActive,
 			LastLoginAt:    user.LastLoginAt,
 			CreatedAt:      user.CreatedAt,
@@ -280,6 +283,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		Phone:          user.Phone,
 		Role:           user.Role,
 		OrganizationID: user.OrganizationID,
+		Timezone:       user.Timezone,
 		IsActive:       user.IsActive,
 		LastLoginAt:    user.LastLoginAt,
 		CreatedAt:      user.CreatedAt,
@@ -298,6 +302,7 @@ type UpdateUserRequest struct {
 	LastName  *string `json:"last_name,omitempty"`
 	Phone     *string `json:"phone,omitempty"`
 	Role      *string `json:"role,omitempty" binding:"omitempty,oneof=admin manager care_worker support_coordinator"`
+	Timezone  *string `json:"timezone,omitempty"`
 	IsActive  *bool   `json:"is_active,omitempty"`
 }
 
@@ -400,6 +405,9 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	if req.Role != nil {
 		updates["role"] = *req.Role
 	}
+	if req.Timezone != nil {
+		updates["timezone"] = *req.Timezone
+	}
 	if req.IsActive != nil {
 		updates["is_active"] = *req.IsActive
 	}
@@ -427,6 +435,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		Phone:          user.Phone,
 		Role:           user.Role,
 		OrganizationID: user.OrganizationID,
+		Timezone:       user.Timezone,
 		IsActive:       user.IsActive,
 		LastLoginAt:    user.LastLoginAt,
 		CreatedAt:      user.CreatedAt,
@@ -533,5 +542,15 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "User deleted successfully",
+	})
+}
+
+// GetSupportedTimezones returns list of supported timezones
+func (h *Handler) GetSupportedTimezones(c *gin.Context) {
+	timezones := utils.GetSupportedTimezones()
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    timezones,
 	})
 }

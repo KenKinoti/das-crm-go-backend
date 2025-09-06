@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"net/http"
+	
 	"github.com/gin-gonic/gin"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/config"
 	"github.com/kenkinoti/gofiber-ago-crm-backend/internal/middleware"
@@ -17,6 +19,65 @@ func NewHandler(db *gorm.DB, cfg *config.Config) *Handler {
 		DB:     db,
 		Config: cfg,
 	}
+}
+
+// Helper methods for handlers
+func (h *Handler) GetUserIDFromContext(c *gin.Context) string {
+	if userID, exists := c.Get("user_id"); exists {
+		if id, ok := userID.(string); ok {
+			return id
+		}
+	}
+	return ""
+}
+
+func (h *Handler) GetUserRoleFromContext(c *gin.Context) string {
+	if role, exists := c.Get("user_role"); exists {
+		if r, ok := role.(string); ok {
+			return r
+		}
+	}
+	return ""
+}
+
+func (h *Handler) CanUserAccessResource(c *gin.Context, permission string, resourceUserID string) bool {
+	currentUserID := h.GetUserIDFromContext(c)
+	currentUserRole := h.GetUserRoleFromContext(c)
+	
+	// User can access their own resources
+	if currentUserID == resourceUserID {
+		return true
+	}
+	
+	// Admins and managers can access other users' resources
+	switch currentUserRole {
+	case "super_admin", "admin", "manager":
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *Handler) SendErrorResponse(c *gin.Context, statusCode int, message string, err error) {
+	response := gin.H{
+		"success": false,
+		"error": gin.H{
+			"message": message,
+		},
+	}
+	
+	if err != nil {
+		response["error"].(gin.H)["details"] = err.Error()
+	}
+	
+	c.JSON(statusCode, response)
+}
+
+func (h *Handler) SendSuccessResponse(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    data,
+	})
 }
 
 func (h *Handler) SetupRoutes(router *gin.Engine) {
@@ -60,6 +121,7 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 				users.POST("", middleware.RequireRole("admin"), h.CreateUser)
 				users.PUT("/:id", h.UpdateUser)
 				users.DELETE("/:id", middleware.RequireRole("admin"), h.DeleteUser)
+				users.GET("/timezones", h.GetSupportedTimezones)
 			}
 
 			// Participant routes
@@ -189,6 +251,13 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 				reports.GET("/staff-performance", h.GetStaffPerformance)
 				reports.GET("/:type/export", h.ExportReport)
 				reports.GET("/templates", h.GetReportTemplates)
+			}
+
+			// Worker availability and preferences routes
+			worker := protected.Group("/worker")
+			{
+				workerHandler := NewWorkerAvailabilityHandler(h)
+				workerHandler.RegisterRoutes(worker)
 			}
 		}
 	}

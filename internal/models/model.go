@@ -36,6 +36,7 @@ type User struct {
 	Phone          string         `json:"phone" gorm:"type:varchar(20)"`
 	Role           string         `json:"role" gorm:"type:varchar(50);not null;index"`     // admin, manager, care_worker, support_coordinator
 	RoleID         *string        `json:"role_id,omitempty" gorm:"type:varchar(36);index"` // New role-based system
+	Timezone       string         `json:"timezone" gorm:"type:varchar(100);default:'Australia/Adelaide'"` // User's preferred timezone
 	OrganizationID string         `json:"organization_id" gorm:"type:varchar(36);not null;index"`
 	IsActive       bool           `json:"is_active" gorm:"default:true;index"`
 	LastLoginAt    *time.Time     `json:"last_login_at,omitempty"`
@@ -325,6 +326,11 @@ func MigrateDB(db *gorm.DB) error {
 		&CarePlan{},
 		&RefreshToken{},
 		&UserPermission{},
+		&WorkerAvailability{},
+		&WorkerAvailabilityException{},
+		&WorkerPreferences{},
+		&WorkerSkill{},
+		&WorkerLocationPreference{},
 	)
 }
 
@@ -557,6 +563,9 @@ func SeedDatabase(db *gorm.DB) error {
 			db.FirstOrCreate(&userPerm, "user_id = ? AND permission = ?", user.ID, perm)
 		}
 	}
+
+	// Sample data will be created via SQL script
+	// Run supabase_schema.sql for participant, care plan, and shift data
 
 	return nil
 }
