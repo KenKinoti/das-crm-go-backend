@@ -54,7 +54,9 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	router := gin.Default()
+	router := gin.New()
+	router.RedirectTrailingSlash = false
+	router.RedirectFixedPath = false
 
 	// Setup middleware
 	router.Use(middleware.CORS())

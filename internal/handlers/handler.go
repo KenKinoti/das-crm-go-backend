@@ -259,6 +259,28 @@ func (h *Handler) SetupRoutes(router *gin.Engine) {
 				workerHandler := NewWorkerAvailabilityHandler(h)
 				workerHandler.RegisterRoutes(worker)
 			}
+
+			// Incident Report routes
+			incidents := protected.Group("/incident-reports")
+			{
+				incidents.GET("", h.GetIncidentReports)
+				incidents.POST("", h.CreateIncidentReport)
+				incidents.POST("/enhanced", h.CreateEnhancedIncidentReport)
+				incidents.GET("/stats", h.GetIncidentReportStats)
+				incidents.GET("/:id", h.GetIncidentReport)
+				incidents.PUT("/:id", middleware.RequireRole("support_coordinator", "admin", "manager"), h.UpdateIncidentReport)
+			}
+
+			// Care Notes routes
+			careNotes := protected.Group("/care-notes")
+			{
+				careNotes.GET("", h.GetCareNotes)
+				careNotes.GET("/stats", h.GetCareNoteStats)
+				careNotes.GET("/:id", h.GetCareNote)
+				careNotes.POST("", h.CreateCareNote)
+				careNotes.PUT("/:id", h.UpdateCareNote)
+				careNotes.DELETE("/:id", h.DeleteCareNote)
+			}
 		}
 	}
 }

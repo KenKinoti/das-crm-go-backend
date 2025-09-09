@@ -23,7 +23,17 @@ func NewWorkerAvailabilityHandler(h *Handler) *WorkerAvailabilityHandler {
 
 // RegisterRoutes registers worker availability routes
 func (wah *WorkerAvailabilityHandler) RegisterRoutes(router *gin.RouterGroup) {
-	// Worker availability routes
+	// Register routes without trailing slash to avoid redirects
+	router.GET("/availability", wah.GetAvailability)
+	router.POST("/availability", wah.CreateAvailability)
+	router.GET("/skills", wah.GetWorkerSkills)
+	router.POST("/skills", wah.CreateWorkerSkill)
+	router.GET("/preferences", wah.GetWorkerPreferences)
+	router.POST("/preferences", wah.CreateWorkerPreferences)
+	router.GET("/locations", wah.GetLocationPreferences)
+	router.POST("/locations", wah.CreateLocationPreference)
+	
+	// Worker availability routes with trailing slash (keep for existing compatibility)
 	availabilityRoutes := router.Group("/availability")
 	{
 		// Weekly availability patterns

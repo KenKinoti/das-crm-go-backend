@@ -221,6 +221,7 @@ func MigrateExtendedDB(db *gorm.DB) error {
 		&WorkerPreferences{},
 		&WorkerSkill{},
 		&WorkerLocationPreference{},
+		&IncidentReport{},
 	)
 }
 
