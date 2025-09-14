@@ -1,6 +1,7 @@
 package models
 
 import (
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -949,6 +950,11 @@ func SeedDatabase(db *gorm.DB) error {
 			}
 			db.FirstOrCreate(&userPerm, "user_id = ? AND permission = ?", user.ID, perm)
 		}
+	}
+
+	// Create default organization settings for the default organization
+	if err := SetupOrganizationDefaults(db, org.ID); err != nil {
+		log.Printf("Warning: Failed to setup organization defaults: %v", err)
 	}
 
 	// Sample data will be created via SQL script

@@ -12,11 +12,32 @@ import (
 	"gorm.io/gorm"
 )
 
-// parseTimeFromString accepts multiple time formats and returns a time.Time
-// IMPORTANT: This function treats all times without explicit timezone as UTC
-// to avoid any server-side timezone conversions. The frontend handles display.
-func parseTimeFromString(timeStr string) (time.Time, error) {
+// getOrganizationTimezone retrieves the timezone setting for an organization
+func (h *Handler) getOrganizationTimezone(orgID string) (*time.Location, error) {
+	var orgSettings models.OrganizationSettings
+	err := h.DB.Where("organization_id = ?", orgID).First(&orgSettings).Error
+	if err != nil {
+		// Default to Australia/Adelaide if no settings found
+		if err == gorm.ErrRecordNotFound {
+			return time.LoadLocation("Australia/Adelaide")
+		}
+		return nil, err
+	}
+	
+	// Parse the timezone string
+	return time.LoadLocation(orgSettings.Timezone)
+}
+
+// parseTimeInOrganizationTimezone accepts multiple time formats and returns a time.Time
+// in the organization's timezone. This ensures shifts are stored in the organization's local time.
+func (h *Handler) parseTimeInOrganizationTimezone(timeStr string, orgID string) (time.Time, error) {
 	timeStr = strings.TrimSpace(timeStr)
+
+	// Get organization timezone
+	orgTz, err := h.getOrganizationTimezone(orgID)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to get organization timezone: %v", err)
+	}
 
 	// List of supported time formats
 	timeFormats := []string{
@@ -31,8 +52,39 @@ func parseTimeFromString(timeStr string) (time.Time, error) {
 	// Try each format
 	for _, format := range timeFormats {
 		if t, err := time.Parse(format, timeStr); err == nil {
-			// Always return as UTC to avoid server timezone issues
-			// The time values are preserved exactly as sent
+			// If the time has timezone info (RFC3339), convert to org timezone
+			if format == time.RFC3339 || format == time.RFC3339Nano {
+				return t.In(orgTz), nil
+			}
+			// If no timezone info, treat as organization local time
+			return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), orgTz), nil
+		}
+	}
+
+	return time.Time{}, &time.ParseError{Value: timeStr, Layout: "", ValueElem: ""}
+}
+
+// Legacy function for backward compatibility - now uses organization timezone
+func parseTimeFromString(timeStr string) (time.Time, error) {
+	timeStr = strings.TrimSpace(timeStr)
+
+	// List of supported time formats
+	timeFormats := []string{
+		time.RFC3339,          // "2006-01-02T15:04:05Z07:00"
+		time.RFC3339Nano,      // "2006-01-02T15:04:05.999999999Z07:00"
+		"2006-01-02T15:04:05", // Local time without timezone
+		"2006-01-02 15:04:05", // Space separated local time
+		"2006-01-02T15:04",    // Short format without seconds
+		"2006-01-02 15:04",    // Short format with space
+	}
+
+	// Try each format - fallback to UTC if no timezone provided
+	for _, format := range timeFormats {
+		if t, err := time.Parse(format, timeStr); err == nil {
+			if format == time.RFC3339 || format == time.RFC3339Nano {
+				return t, nil
+			}
+			// For local time formats, assume UTC (legacy behavior)
 			return t.UTC(), nil
 		}
 	}
@@ -247,8 +299,8 @@ func (h *Handler) CreateShift(c *gin.Context) {
 		return
 	}
 
-	// Parse start and end times - accept multiple formats
-	startTime, err := parseTimeFromString(req.StartTime)
+	// Parse start and end times using organization timezone
+	startTime, err := h.parseTimeInOrganizationTimezone(req.StartTime, orgID.(string))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -261,7 +313,7 @@ func (h *Handler) CreateShift(c *gin.Context) {
 		return
 	}
 
-	endTime, err := parseTimeFromString(req.EndTime)
+	endTime, err := h.parseTimeInOrganizationTimezone(req.EndTime, orgID.(string))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -452,7 +504,7 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 	endTime := shift.EndTime
 
 	if req.StartTime != nil {
-		if parsedStart, err := parseTimeFromString(*req.StartTime); err != nil {
+		if parsedStart, err := h.parseTimeInOrganizationTimezone(*req.StartTime, orgID.(string)); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"success": false,
 				"error": gin.H{
@@ -468,7 +520,7 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 	}
 
 	if req.EndTime != nil {
-		if parsedEnd, err := parseTimeFromString(*req.EndTime); err != nil {
+		if parsedEnd, err := h.parseTimeInOrganizationTimezone(*req.EndTime, orgID.(string)); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"success": false,
 				"error": gin.H{
@@ -528,12 +580,12 @@ func (h *Handler) UpdateShift(c *gin.Context) {
 		timeChanged = true
 	}
 	if req.ActualStartTime != nil {
-		if actualStart, err := parseTimeFromString(*req.ActualStartTime); err == nil {
+		if actualStart, err := h.parseTimeInOrganizationTimezone(*req.ActualStartTime, orgID.(string)); err == nil {
 			updates["actual_start_time"] = actualStart
 		}
 	}
 	if req.ActualEndTime != nil {
-		if actualEnd, err := parseTimeFromString(*req.ActualEndTime); err == nil {
+		if actualEnd, err := h.parseTimeInOrganizationTimezone(*req.ActualEndTime, orgID.(string)); err == nil {
 			updates["actual_end_time"] = actualEnd
 		}
 	}
@@ -739,9 +791,13 @@ func (h *Handler) UpdateShiftStatus(c *gin.Context) {
 		return
 	}
 
-	// Special validation for starting shifts (30-minute rule)
+	// Special validation for starting shifts (30-minute rule) - using organization timezone
 	if req.Status == "in_progress" && shift.Status == "scheduled" {
-		now := time.Now()
+		orgTz, err := h.getOrganizationTimezone(orgID.(string))
+		if err != nil {
+			orgTz = time.UTC // fallback to UTC if unable to get org timezone
+		}
+		now := time.Now().In(orgTz)
 		shiftStart := shift.StartTime
 
 		// Check if trying to start more than 30 minutes before scheduled time
@@ -767,18 +823,23 @@ func (h *Handler) UpdateShiftStatus(c *gin.Context) {
 		updates["completion_notes"] = *req.CompletionNotes
 	}
 	if req.ActualStartTime != nil {
-		if actualStart, err := parseTimeFromString(*req.ActualStartTime); err == nil {
+		if actualStart, err := h.parseTimeInOrganizationTimezone(*req.ActualStartTime, orgID.(string)); err == nil {
 			updates["actual_start_time"] = actualStart
 		}
 	}
 	if req.ActualEndTime != nil {
-		if actualEnd, err := parseTimeFromString(*req.ActualEndTime); err == nil {
+		if actualEnd, err := h.parseTimeInOrganizationTimezone(*req.ActualEndTime, orgID.(string)); err == nil {
 			updates["actual_end_time"] = actualEnd
 		}
 	}
 
-	// Auto-set actual times for certain transitions
-	now := time.Now()
+	// Auto-set actual times for certain transitions using organization timezone
+	orgTz, err := h.getOrganizationTimezone(orgID.(string))
+	if err != nil {
+		orgTz = time.UTC // fallback to UTC if unable to get org timezone
+	}
+	now := time.Now().In(orgTz)
+	
 	if req.Status == "in_progress" && shift.ActualStartTime == nil {
 		updates["actual_start_time"] = now
 	}
